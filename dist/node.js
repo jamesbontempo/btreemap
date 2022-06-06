@@ -6,13 +6,13 @@ const _1 = require(".");
 const tree_1 = require("./tree");
 const leaf_1 = require("./leaf");
 class Node extends node_events_1.EventEmitter {
-    constructor(type, degree) {
+    constructor(type, order) {
         if (tree_1.debug)
-            console.log("Node", "constructor", type, degree);
+            console.log("Node", "constructor", type, order);
         super();
         this.type = type;
-        this.degree = degree;
-        this.min = (type === _1.ROOT) ? 1 : Math.ceil(degree / 2) - 1;
+        this.order = order;
+        this.min = (type === _1.ROOT) ? 1 : Math.ceil(order / 2) - 1;
         this.keys = [];
         this.children = [];
     }
@@ -22,7 +22,7 @@ class Node extends node_events_1.EventEmitter {
     }
     internalize() {
         this.type = _1.INTERNAL;
-        this.min = Math.ceil(this.degree / 2) - 1;
+        this.min = Math.ceil(this.order / 2) - 1;
     }
     size() {
         return this.keys.length;
@@ -32,11 +32,18 @@ class Node extends node_events_1.EventEmitter {
             return this.children[0].lowest(recurse);
         return this.keys[0];
     }
-    highest() {
+    highest(recurse = false) {
+        if (recurse)
+            return this.children[this.children.length - 1].highest(recurse);
         return this.keys[this.keys.length - 1];
     }
     first() {
         return this.children[0].first();
+    }
+    find(key) {
+        if (tree_1.debug)
+            console.log((this.type === _1.ROOT) ? "Root" : "Node", this.keys, "find", key);
+        return this.redirect(key, "find", key);
     }
     siblings(key) {
         const siblings = [];
@@ -57,7 +64,7 @@ class Node extends node_events_1.EventEmitter {
     }
     childIndex(key) {
         for (let index = 0; index < this.size(); index++) {
-            if (key < this.keys[index])
+            if ((0, tree_1.cmp)(key, this.keys[index]) < 0)
                 return index;
         }
         return this.size();
@@ -66,7 +73,7 @@ class Node extends node_events_1.EventEmitter {
         if (tree_1.debug)
             console.log((this.type === _1.ROOT) ? "Root" : "Node", this.keys, "redirect", func, args);
         for (let i = 0; i < this.keys.length; i++) {
-            if (key < this.keys[i]) {
+            if ((0, tree_1.cmp)(key, this.keys[i]) < 0) {
                 return this.children[i][func](...args);
             }
         }
@@ -102,7 +109,7 @@ class Node extends node_events_1.EventEmitter {
         else {
             const key = (child instanceof leaf_1.Leaf) ? child.lowest() : child.lowest(true);
             if (this.size() === 0) {
-                if (key < this.lowest(true)) {
+                if ((0, tree_1.cmp)(key, this.lowest(true)) < 0) {
                     this.keys.unshift(this.lowest(true));
                     this.children.unshift(child);
                     this.emit("update", this.keys[0], key);
@@ -112,15 +119,16 @@ class Node extends node_events_1.EventEmitter {
                     this.children.push(child);
                 }
             }
-            else if (key > this.highest()) {
+            else if ((0, tree_1.cmp)(key, this.highest()) > 0) {
                 this.keys.push(key);
                 this.children.push(child);
             }
             else {
                 for (let i = 0; i < this.keys.length; i++) {
-                    if (key < this.keys[i]) {
-                        this.keys.splice(i, 0, (i === 0 && key < this.lowest(true)) ? this.lowest(true) : key);
-                        this.children.splice((i === 0 && key < this.lowest(true)) ? 0 : i + 1, 0, child);
+                    if ((0, tree_1.cmp)(key, this.keys[i]) < 0) {
+                        const newLowest = i === 0 && (0, tree_1.cmp)(key, this.lowest(true)) < 0;
+                        this.keys.splice(i, 0, (newLowest) ? this.lowest(true) : key);
+                        this.children.splice((newLowest) ? 0 : i + 1, 0, child);
                         if (i === 0)
                             this.emit("update", this.keys[1], key);
                         break;
@@ -128,14 +136,14 @@ class Node extends node_events_1.EventEmitter {
                 }
             }
         }
-        if (this.size() === this.degree) {
+        if (this.size() === this.order) {
             this.splitNode();
         }
     }
     splitNode() {
         if (tree_1.debug)
             console.log((this.type === _1.ROOT) ? "Root" : "Node", this.keys, "splitNode");
-        const node = new Node(_1.INTERNAL, this.degree);
+        const node = new Node(_1.INTERNAL, this.order);
         this.keys.splice(node.min);
         this.children.splice(node.min + 1).forEach(child => {
             node.addChild(child);
@@ -263,9 +271,12 @@ class Node extends node_events_1.EventEmitter {
         this.children.forEach((child) => child.stats(stats));
         return stats;
     }
-    print(level = 0) {
-        console.log("|  ".repeat(level) + "keys: " + this.keys);
-        this.children.forEach((child) => child.print(level + 1));
+    toString(level = 0) {
+        let s = ("|  ".repeat(level) + "keys: " + this.keys);
+        for (let i = 0; i < this.children.length; i++) {
+            s += "\n" + this.children[i].toString(level + 1);
+        }
+        return s;
     }
 }
 exports.Node = Node;

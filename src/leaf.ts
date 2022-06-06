@@ -1,25 +1,25 @@
 import { EventEmitter } from "node:events";
 import { Key, Value } from ".";
-import { debug } from "./tree";
+import { debug, cmp } from "./tree";
 
 export interface Leaf {
 	[index: string]: any;
 }
 
 export class Leaf extends EventEmitter {
-	degree: number;
+	order: number;
 	min: number;
 	keys: Array<Key>;
 	children: Array<Array<Value>>;
 	next: Leaf|undefined;
 	
-	constructor(degree: number) {
-		if (debug) console.log("Leaf", "constructor", degree);
+	constructor(order: number) {
+		if (debug) console.log("Leaf", "constructor", order);
 		
 		super();
 		
-		this.degree = degree;
-		this.min = Math.ceil(degree/2);
+		this.order = order;
+		this.min = Math.ceil(order/2);
 		this.keys = [];
 		this.children = [];
 		this.next = undefined;
@@ -41,6 +41,10 @@ export class Leaf extends EventEmitter {
 		return this;
 	}
 	
+	find (): Leaf {
+		return this;
+	}
+	
 	insert(key: Key, value: Value): void {
 		if (debug) console.log("Leaf", this.keys, "insert", key, value);
 		
@@ -49,12 +53,12 @@ export class Leaf extends EventEmitter {
 		if (index >= 0) {
 			this.children[index].push(value)
 		} else {
-			if (this.size() === 0 || key > this.highest()) {
+			if (this.size() === 0 || cmp(key, this.highest()) > 0) {
 				this.keys.push(key);
 				this.children.push([value]);
 			} else {
 				for (let i = 0; i < this.keys.length; i++) {
-					if (key < this.keys[i]) {
+					if (cmp(key, this.keys[i]) < 0) {
 						this.keys.splice(i, 0, key);
 						this.children.splice(i, 0, [value]);
 						if (i === 0) this.emit("update", this.keys[1], key);
@@ -64,7 +68,7 @@ export class Leaf extends EventEmitter {
 			}
 		}
 		
-		if (this.size() > this.degree) this.splitLeaf();
+		if (this.size() > this.order) this.splitLeaf();
 	}
 	
 	search(key: Key, hops: number = 0): Record<string, any> {
@@ -79,7 +83,7 @@ export class Leaf extends EventEmitter {
 			count = children.length;
 		}
 		
-		return {key: key, values: children, count: count, hops: hops};
+		return {key: key, count: count, values: children, hops: hops+1};
 	}
 	
 	update(key: Key, updater: Function): Record<string, any> {
@@ -91,8 +95,9 @@ export class Leaf extends EventEmitter {
 		const index = this.keys.indexOf(key);
 		
 		if (index >= 0) {
-			before = [...this.children[index]];
+			before = [];
 			for (let i = 0; i < this.children[index].length; i++) {
+				before.push(JSON.parse(JSON.stringify(this.children[index][i])));
 				this.children[index][i] = updater(this.children[index][i]);
 				count++;
 			}
@@ -126,7 +131,7 @@ export class Leaf extends EventEmitter {
 	splitLeaf(): void {
 		if (debug) console.log("Leaf", this.keys, "splitLeaf");
 		
-		const leaf = new Leaf(this.degree);
+		const leaf = new Leaf(this.order);
 		
 		const keys = this.keys.splice(leaf.min);
 		const children = this.children.splice(leaf.min);
@@ -144,12 +149,12 @@ export class Leaf extends EventEmitter {
 	addChild(key: Key, child: Array<Value>): void {
 		if (debug) console.log("Leaf", this.keys, "addChild", key, child);
 		
-		if (this.size() === 0 || key > this.highest()) {
+		if (this.size() === 0 || cmp(key, this.highest()) > 0) {
 			this.keys.push(key);
 			this.children.push(child);
 		} else {
 			for (let i = 0; i < this.size(); i++) {
-				if (key < this.keys[i]) {
+				if (cmp(key, this.keys[i]) < 0) {
 					this.keys.splice(i, 0, key);
 					this.children.splice(i, 0, child);
 					if (i === 0) this.emit("update", this.keys[1], key);
@@ -158,7 +163,7 @@ export class Leaf extends EventEmitter {
 			}
 		}
 		
-		if (this.size() > this.degree) this.splitLeaf();
+		if (this.size() > this.order) this.splitLeaf();
 	}
 	
 	lendChild(action: string): Record<string, Key|Value>|undefined {
@@ -185,16 +190,17 @@ export class Leaf extends EventEmitter {
 	
 	stats(stats: Record<string, any>): Record<string, any> {
 		stats.leaves++;
+		stats.keys += this.keys.length;
 		this.children.forEach((child) => stats.values += child.length);
 		return stats;
 	}
 	
-	print(level: number = 0): void {
-		let output = "|  ".repeat(level);
+	toString(level: number = 0): string {
+		let s = "|  ".repeat(level);
 		for (let index = 0; index < this.keys.length; index++) {
-			output += this.keys[index] + ": " + JSON.stringify(this.children[index]) + " ";
+			s += this.keys[index] + ": " + JSON.stringify(this.children[index]) + " ";
 		}
-		if (this.next) output += "--> " + JSON.stringify(this.next.lowest());
-		console.log(output);
+		if (this.next) s += "--> " + JSON.stringify(this.next.lowest());
+		return s;
 	}
 }

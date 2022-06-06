@@ -10,24 +10,55 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
     return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
-var _Tree_degree, _Tree_root;
+var _Tree_instances, _Tree_order, _Tree_root, _Tree_splitTree, _Tree_shrinkTree;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Tree = exports.debug = void 0;
+exports.Tree = exports.cmp = exports.debug = void 0;
 const _1 = require("./");
 const node_1 = require("./node");
 const leaf_1 = require("./leaf");
 exports.debug = false;
+let cmp = (a, b) => {
+    if (typeof a === "number" && typeof b === "string")
+        return -1;
+    if (typeof a === "string" && typeof b === "number")
+        return 1;
+    if (a < b)
+        return -1;
+    if (a > b)
+        return 1;
+    return 0;
+};
+exports.cmp = cmp;
 class Tree {
-    constructor(degree) {
-        _Tree_degree.set(this, void 0);
+    constructor(order) {
+        _Tree_instances.add(this);
+        _Tree_order.set(this, void 0);
         _Tree_root.set(this, void 0);
-        __classPrivateFieldSet(this, _Tree_degree, degree, "f");
-        const root = new leaf_1.Leaf(degree);
-        root.on("split", (leaf) => this.splitTree(leaf));
+        if (order < 3)
+            throw new RangeError("Minimum tree order is 3");
+        __classPrivateFieldSet(this, _Tree_order, order, "f");
+        const root = new leaf_1.Leaf(order);
+        root.on("split", (leaf) => __classPrivateFieldGet(this, _Tree_instances, "m", _Tree_splitTree).call(this, leaf));
         __classPrivateFieldSet(this, _Tree_root, root, "f");
     }
     set debug(d) {
         exports.debug = d;
+    }
+    set cmp(f) {
+        exports.cmp = f;
+    }
+    get order() {
+        return __classPrivateFieldGet(this, _Tree_order, "f");
+    }
+    lowest() {
+        if (__classPrivateFieldGet(this, _Tree_root, "f").size() === 0)
+            return undefined;
+        return __classPrivateFieldGet(this, _Tree_root, "f").lowest(true);
+    }
+    highest() {
+        if (__classPrivateFieldGet(this, _Tree_root, "f").size() === 0)
+            return undefined;
+        return __classPrivateFieldGet(this, _Tree_root, "f").highest(true);
     }
     insert(...pairs) {
         if (exports.debug)
@@ -48,11 +79,34 @@ class Tree {
         if (exports.debug)
             console.log("Tree", "search", keys);
         const results = [];
+        let count = 0;
         const start = Date.now();
-        for (const key of keys) {
-            results.push(__classPrivateFieldGet(this, _Tree_root, "f").search(key));
+        for (let key of keys) {
+            if (/^\d+$/.test(key.toString()))
+                key = new Number(key).valueOf();
+            const result = __classPrivateFieldGet(this, _Tree_root, "f").search(key);
+            count += result.count;
+            results.push(result);
         }
-        return Object.assign({ results: results }, { time: Date.now() - start });
+        return Object.assign({ results: results }, { count: count, time: Date.now() - start });
+    }
+    *searchRange(start, end) {
+        if (__classPrivateFieldGet(this, _Tree_root, "f").size() === 0)
+            return;
+        if (/^\d+$/.test(start.toString()))
+            start = new Number(start).valueOf();
+        if (/^\d+$/.test(end.toString()))
+            end = new Number(end).valueOf();
+        let leaf = __classPrivateFieldGet(this, _Tree_root, "f").find(start);
+        do {
+            for (let i = 0; i < leaf.children.length; i++) {
+                if ((0, exports.cmp)(leaf.keys[i], start) >= 0 && (0, exports.cmp)(leaf.keys[i], end) <= 0)
+                    yield { [leaf.keys[i]]: leaf.children[i] };
+                if ((0, exports.cmp)(leaf.keys[i], end) > 0)
+                    break;
+            }
+            leaf = leaf.next;
+        } while (leaf !== undefined);
     }
     update(...args) {
         if (exports.debug)
@@ -61,24 +115,30 @@ class Tree {
         const keys = args;
         const results = [];
         const start = Date.now();
-        for (const key of keys) {
+        for (let key of keys) {
+            if (/^\d+$/.test(key.toString()))
+                key = new Number(key).valueOf();
             results.push(__classPrivateFieldGet(this, _Tree_root, "f").update(key, updater));
         }
         return Object.assign({ results: results }, { time: Date.now() - start });
     }
+    // updateRange - generator or recursive function? Probably a recursive function.
     delete(...keys) {
         if (exports.debug)
             console.log("Tree", "delete", keys);
         const results = [];
         const start = Date.now();
-        for (const key of keys) {
+        for (let key of keys) {
+            if (/^\d+$/.test(key.toString()))
+                key = new Number(key).valueOf();
             results.push(__classPrivateFieldGet(this, _Tree_root, "f").delete(key));
         }
         return Object.assign({ results: results }, { time: Date.now() - start });
     }
+    // deleteRange - can the individual pairs delete themselves? Or do we call delete on the parent leaf?
     *keys(order = "asc") {
         if (__classPrivateFieldGet(this, _Tree_root, "f").size() === 0)
-            return;
+            return undefined;
         if (order === "asc") {
             let leaf = __classPrivateFieldGet(this, _Tree_root, "f").first();
             do {
@@ -91,22 +151,26 @@ class Tree {
     }
     *values() {
         if (__classPrivateFieldGet(this, _Tree_root, "f").size() === 0)
-            return;
+            return undefined;
         let leaf = __classPrivateFieldGet(this, _Tree_root, "f").first();
         do {
-            for (const child of leaf.children) {
-                yield child;
+            for (let i = 0; i < leaf.children.length; i++) {
+                for (let j = 0; j < leaf.children[i].length; j++) {
+                    yield leaf.children[i][j];
+                }
             }
             leaf = leaf.next;
         } while (leaf !== undefined);
     }
     *pairs() {
         if (__classPrivateFieldGet(this, _Tree_root, "f").size() === 0)
-            return;
+            return undefined;
         let leaf = __classPrivateFieldGet(this, _Tree_root, "f").first();
         do {
             for (let i = 0; i < leaf.keys.length; i++) {
-                yield { [leaf.keys[i]]: leaf.children[i] };
+                for (let j = 0; j < leaf.children[i].length; j++) {
+                    yield { [leaf.keys[i]]: leaf.children[i][j] };
+                }
             }
             leaf = leaf.next;
         } while (leaf !== undefined);
@@ -114,47 +178,48 @@ class Tree {
     clear() {
         if (exports.debug)
             console.log("Tree", "clear");
-        const root = new leaf_1.Leaf(__classPrivateFieldGet(this, _Tree_degree, "f"));
-        root.on("split", (leaf) => this.splitTree(leaf));
-        __classPrivateFieldSet(this, _Tree_root, root, "f");
-    }
-    splitTree(child) {
-        if (exports.debug)
-            console.log("Tree", "splitTree", child.keys);
-        __classPrivateFieldGet(this, _Tree_root, "f").removeAllListeners();
-        if (__classPrivateFieldGet(this, _Tree_root, "f") instanceof node_1.Node)
-            __classPrivateFieldGet(this, _Tree_root, "f").internalize();
-        const root = new node_1.Node(_1.ROOT, __classPrivateFieldGet(this, _Tree_degree, "f"));
-        root.addChild(__classPrivateFieldGet(this, _Tree_root, "f"));
-        root.addChild(child);
-        root.on("split", (child) => this.splitTree(child));
-        root.on("shrink", () => this.shrinkTree());
-        __classPrivateFieldSet(this, _Tree_root, root, "f");
-    }
-    shrinkTree() {
-        if (exports.debug)
-            console.log("Tree", "shrinkTree");
-        __classPrivateFieldGet(this, _Tree_root, "f").removeAllListeners();
-        const root = __classPrivateFieldGet(this, _Tree_root, "f").children[0];
-        if (root instanceof node_1.Node)
-            root.rootize();
-        root.on("split", (child) => this.splitTree(child));
-        root.on("shrink", () => this.shrinkTree());
+        const root = new leaf_1.Leaf(__classPrivateFieldGet(this, _Tree_order, "f"));
+        root.on("split", (leaf) => __classPrivateFieldGet(this, _Tree_instances, "m", _Tree_splitTree).call(this, leaf));
         __classPrivateFieldSet(this, _Tree_root, root, "f");
     }
     stats() {
-        return __classPrivateFieldGet(this, _Tree_root, "f").stats({ nodes: 0, leaves: 0, values: 0, depth: __classPrivateFieldGet(this, _Tree_root, "f").search(0).hops });
+        return __classPrivateFieldGet(this, _Tree_root, "f").stats({ nodes: 0, keys: 0, leaves: 0, values: 0, depth: __classPrivateFieldGet(this, _Tree_root, "f").search(0).hops });
     }
-    print() {
-        console.log("degree: " + __classPrivateFieldGet(this, _Tree_degree, "f"));
+    toString() {
+        const s = "order: " + __classPrivateFieldGet(this, _Tree_order, "f");
         if (__classPrivateFieldGet(this, _Tree_root, "f").size() === 0) {
-            console.log("[empty]");
+            return s + "\n[empty]";
         }
         else {
-            __classPrivateFieldGet(this, _Tree_root, "f").print();
+            return s + "\n" + __classPrivateFieldGet(this, _Tree_root, "f").toString().trim();
         }
+    }
+    print() {
+        console.log(this.toString());
     }
 }
 exports.Tree = Tree;
-_Tree_degree = new WeakMap(), _Tree_root = new WeakMap();
+_Tree_order = new WeakMap(), _Tree_root = new WeakMap(), _Tree_instances = new WeakSet(), _Tree_splitTree = function _Tree_splitTree(child) {
+    if (exports.debug)
+        console.log("Tree", "splitTree", child.keys);
+    __classPrivateFieldGet(this, _Tree_root, "f").removeAllListeners();
+    if (__classPrivateFieldGet(this, _Tree_root, "f") instanceof node_1.Node)
+        __classPrivateFieldGet(this, _Tree_root, "f").internalize();
+    const root = new node_1.Node(_1.ROOT, __classPrivateFieldGet(this, _Tree_order, "f"));
+    root.addChild(__classPrivateFieldGet(this, _Tree_root, "f"));
+    root.addChild(child);
+    root.on("split", (child) => __classPrivateFieldGet(this, _Tree_instances, "m", _Tree_splitTree).call(this, child));
+    root.on("shrink", () => __classPrivateFieldGet(this, _Tree_instances, "m", _Tree_shrinkTree).call(this));
+    __classPrivateFieldSet(this, _Tree_root, root, "f");
+}, _Tree_shrinkTree = function _Tree_shrinkTree() {
+    if (exports.debug)
+        console.log("Tree", "shrinkTree");
+    __classPrivateFieldGet(this, _Tree_root, "f").removeAllListeners();
+    const root = __classPrivateFieldGet(this, _Tree_root, "f").children[0];
+    if (root instanceof node_1.Node)
+        root.rootize();
+    root.on("split", (child) => __classPrivateFieldGet(this, _Tree_instances, "m", _Tree_splitTree).call(this, child));
+    root.on("shrink", () => __classPrivateFieldGet(this, _Tree_instances, "m", _Tree_shrinkTree).call(this));
+    __classPrivateFieldSet(this, _Tree_root, root, "f");
+};
 //# sourceMappingURL=tree.js.map
