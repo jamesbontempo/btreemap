@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { Key, Value, ROOT, INTERNAL } from ".";
-import { debug } from "./tree";
+import { debug, cmp } from "./tree";
 import { Leaf } from "./leaf";
 
 export interface Node {
@@ -9,19 +9,19 @@ export interface Node {
 
 export class Node extends EventEmitter {
 	type: string;
-	degree: number;
+	order: number;
 	min: number;
 	keys: Array<Key>;
 	children: Array<Node|Leaf>;
 	
-	constructor(type: string, degree: number) {
-		if (debug) console.log("Node", "constructor", type, degree);
+	constructor(type: string, order: number) {
+		if (debug) console.log("Node", "constructor", type, order);
 		
 		super();
 
 		this.type = type;
-		this.degree = degree;
-		this.min = (type === ROOT) ? 1 : Math.ceil(degree/2)-1;
+		this.order = order;
+		this.min = (type === ROOT) ? 1 : Math.ceil(order/2)-1;
 		this.keys = [];
 		this.children = [];
 	}
@@ -33,7 +33,7 @@ export class Node extends EventEmitter {
 	
 	internalize(): void {
 		this.type = INTERNAL;
-		this.min = Math.ceil(this.degree/2)-1;
+		this.min = Math.ceil(this.order/2)-1;
 	}
 	
 	size(): number {
@@ -45,13 +45,20 @@ export class Node extends EventEmitter {
 		return this.keys[0];
 	}
 	
-	highest(): Key {
+	highest(recurse: boolean = false): Key {
+		if (recurse) return this.children[this.children.length-1].highest(recurse);
 		return this.keys[this.keys.length-1];
 	}
 	
 	first(): Leaf {
 		return this.children[0].first();
 	}
+	
+	find (key: Key): Leaf {
+		if (debug) console.log((this.type === ROOT) ? "Root" : "Node", this.keys, "find", key);
+		
+		return this.redirect(key, "find", key);
+	} 
 	
 	siblings(key: Key): Array<Record<string, any>> {
 		const siblings: Array<Record<string, any>> = [];
@@ -73,7 +80,7 @@ export class Node extends EventEmitter {
 	
 	childIndex(key: Key): number {
 		for (let index = 0; index < this.size(); index++) {
-			if (key < this.keys[index]) return index;
+			if (cmp(key, this.keys[index]) < 0) return index;
 		}
 		
 		return this.size();
@@ -83,7 +90,7 @@ export class Node extends EventEmitter {
 		if (debug) console.log((this.type === ROOT) ? "Root" : "Node", this.keys, "redirect", func, args);
 		
 		for (let i = 0; i < this.keys.length; i++) {
-			if (key < this.keys[i]) {
+			if (cmp(key, this.keys[i]) < 0) {
 				return this.children[i][func](...args);
 			}
 		}
@@ -126,7 +133,7 @@ export class Node extends EventEmitter {
 			const key = (child instanceof Leaf) ? child.lowest() : child.lowest(true);
 			
 			if (this.size() === 0) {
-				if (key < this.lowest(true)) {
+				if (cmp(key, this.lowest(true)) < 0) {
 					this.keys.unshift(this.lowest(true));
 					this.children.unshift(child);
 					this.emit("update", this.keys[0], key);
@@ -134,14 +141,15 @@ export class Node extends EventEmitter {
 					this.keys.push(key);
 					this.children.push(child);
 				}
-			} else if (key > this.highest()) {
+			} else if (cmp(key, this.highest()) > 0) {
 				this.keys.push(key);
 				this.children.push(child);
 			} else {
 				for (let i = 0; i < this.keys.length; i++) {
-					if (key < this.keys[i]) {
-						this.keys.splice(i, 0, (i === 0 && key < this.lowest(true)) ? this.lowest(true) : key);
-						this.children.splice((i === 0 && key < this.lowest(true)) ? 0 : i+1, 0, child);
+					if (cmp(key, this.keys[i]) < 0) {
+						const newLowest = i === 0 && cmp(key, this.lowest(true)) < 0;
+						this.keys.splice(i, 0, (newLowest) ? this.lowest(true) : key);
+						this.children.splice((newLowest) ? 0 : i+1, 0, child);
 						if (i === 0) this.emit("update", this.keys[1], key);
 						break;
 					}
@@ -149,7 +157,7 @@ export class Node extends EventEmitter {
 			}
 		}
 		
-		if (this.size() === this.degree) {
+		if (this.size() === this.order) {
 			this.splitNode();
 		}
 	}
@@ -157,7 +165,7 @@ export class Node extends EventEmitter {
 	splitNode(): void {
 		if (debug) console.log((this.type === ROOT) ? "Root" : "Node", this.keys, "splitNode");
 		
-		const node = new Node(INTERNAL, this.degree);
+		const node = new Node(INTERNAL, this.order);
 		
 		this.keys.splice(node.min);
 		this.children.splice(node.min+1).forEach(child => {
@@ -302,8 +310,11 @@ export class Node extends EventEmitter {
 		return stats;
 	}
 	
-	print(level: number = 0) {
-		console.log("|  ".repeat(level) + "keys: " + this.keys);
-		this.children.forEach((child) => child.print(level+1));
+	toString(level: number = 0): string {
+		let s = ("|  ".repeat(level) + "keys: " + this.keys);
+		for (let i = 0; i < this.children.length; i++) {
+			s += "\n" + this.children[i].toString(level+1)
+		}
+		return s;
 	}
 }
