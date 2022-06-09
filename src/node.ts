@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { Key, Value, ROOT, INTERNAL } from ".";
-import { debug, cmp } from "./tree";
+import { debug, compare } from "./tree";
 import { Leaf } from "./leaf";
 
 export interface Node {
@@ -36,11 +36,11 @@ export class Node extends EventEmitter {
 		this.min = Math.ceil(this.order/2)-1;
 	}
 	
-	size(): number {
+	get size(): number {
 		return this.keys.length;
 	}
 	
-	lowest(recurse: boolean = false): Key|Value {
+	lowest(recurse: boolean = false): Key {
 		if (recurse) return this.children[0].lowest(recurse);
 		return this.keys[0];
 	}
@@ -60,15 +60,19 @@ export class Node extends EventEmitter {
 		return this.redirect(key, "find", key);
 	} 
 	
+	depth(hops: number = 0): number {
+		return this.children[0].depth(hops+1);
+	}
+	
 	siblings(key: Key): Array<Record<string, any>> {
 		const siblings: Array<Record<string, any>> = [];
 		const index = this.childIndex(key);
 		
-		if (this.size() < this.min) return siblings;
+		if (this.size < this.min) return siblings;
 		
 		if (index === 0) {
 			siblings.push({direction: "next", child: this.children[1]});
-		} else if (index === this.size()) {
+		} else if (index === this.size) {
 			siblings.push({direction: "previous", child: this.children[index-1]});
 		} else {
 			siblings.push({direction: "previous", child: this.children[index-1]});
@@ -79,18 +83,18 @@ export class Node extends EventEmitter {
 	}
 	
 	childIndex(key: Key): number {
-		for (let index = 0; index < this.size(); index++) {
-			if (cmp(key, this.keys[index]) < 0) return index;
+		for (let index = 0; index < this.size; index++) {
+			if (compare(key, this.keys[index]) < 0) return index;
 		}
 		
-		return this.size();
+		return this.size;
 	}
 	
-	redirect(key: Key, func: string, ...args: Array<any>) {
+	redirect(key: Key, func: string, ...args: Array<any>): any {
 		if (debug) console.log((this.type === ROOT) ? "Root" : "Node", this.keys, "redirect", func, args);
 		
 		for (let i = 0; i < this.keys.length; i++) {
-			if (cmp(key, this.keys[i]) < 0) {
+			if (compare(key, this.keys[i]) < 0) {
 				return this.children[i][func](...args);
 			}
 		}
@@ -98,19 +102,19 @@ export class Node extends EventEmitter {
 		return this.children[this.children.length-1][func](...args);
 	}
 	
-	insert(key: Key, value: Value): any {
+	insert(key: Key, value: Value): void {
 		if (debug) console.log((this.type === ROOT) ? "Root" : "Node", this.keys, "insert", key, value);
 		
-		return this.redirect(key, "insert", key, value);
+		this.redirect(key, "insert", key, value);
 	}
 	
-	search(key: Key, hops: number = 0): any {
-		if (debug) console.log((this.type === ROOT) ? "Root" : "Node", this.keys, "search", key);
+	select(key: Key): Array<Value>|undefined {
+		if (debug) console.log((this.type === ROOT) ? "Root" : "Node", this.keys, "select", key);
 		
-		return this.redirect(key, "search", key, hops+1);
+		return this.redirect(key, "select", key);
 	}
 	
-	update(key: Key, updater: Function): any {
+	update(key: Key, updater: Function): number {
 		if (debug) console.log((this.type === ROOT) ? "Root" : "Node", this.keys, "update", key);
 		
 		return this.redirect(key, "update", key, updater);
@@ -132,8 +136,8 @@ export class Node extends EventEmitter {
 		} else {		
 			const key = (child instanceof Leaf) ? child.lowest() : child.lowest(true);
 			
-			if (this.size() === 0) {
-				if (cmp(key, this.lowest(true)) < 0) {
+			if (this.size === 0) {
+				if (compare(key, this.lowest(true)) < 0) {
 					this.keys.unshift(this.lowest(true));
 					this.children.unshift(child);
 					this.emit("update", this.keys[0], key);
@@ -141,13 +145,13 @@ export class Node extends EventEmitter {
 					this.keys.push(key);
 					this.children.push(child);
 				}
-			} else if (cmp(key, this.highest()) > 0) {
+			} else if (compare(key, this.highest()) > 0) {
 				this.keys.push(key);
 				this.children.push(child);
 			} else {
 				for (let i = 0; i < this.keys.length; i++) {
-					if (cmp(key, this.keys[i]) < 0) {
-						const newLowest = i === 0 && cmp(key, this.lowest(true)) < 0;
+					if (compare(key, this.keys[i]) < 0) {
+						const newLowest = i === 0 && compare(key, this.lowest(true)) < 0;
 						this.keys.splice(i, 0, (newLowest) ? this.lowest(true) : key);
 						this.children.splice((newLowest) ? 0 : i+1, 0, child);
 						if (i === 0) this.emit("update", this.keys[1], key);
@@ -157,7 +161,7 @@ export class Node extends EventEmitter {
 			}
 		}
 		
-		if (this.size() === this.order) {
+		if (this.size === this.order) {
 			this.splitNode();
 		}
 	}
@@ -209,7 +213,7 @@ export class Node extends EventEmitter {
 	lendChild(action: string): Record<string, any>|undefined {
 		if (debug) console.log((this.type === ROOT) ? "Root" : "Node", this.keys, "lendChild", action);
 		
-		if (this.size() <= this.min) return undefined;
+		if (this.size <= this.min) return undefined;
 
 		let key = undefined;
 		let child = undefined;
@@ -270,7 +274,7 @@ export class Node extends EventEmitter {
 			this.children.splice(childIndex, 1);
 		}
 		
-		if (this.size() < this.min) {
+		if (this.size < this.min) {
 			if (this.type === ROOT) {
 				this.emit("shrink");
 			} else {

@@ -1,14 +1,32 @@
-import { Key, Value, Pair, ROOT } from "./";
+import { Key, Value, ROOT } from "./";
 import { Node } from "./node";
 import { Leaf } from "./leaf";
 
 export let debug = false;
 
-export let cmp = (a:Key, b:Key): number => {
-	if (typeof a === "number" && typeof b === "string") return -1;
-	if (typeof a === "string" && typeof b === "number") return 1;
+type comparator = (a: Key, b: Key) => number;
+
+export let compare: comparator = (a: Key, b: Key): number => {	
+	// numbers before letters
+	if (typeof a !== typeof b) {
+		if (typeof a === "number" && typeof b === "string") return -1;
+		if (typeof a === "string" && typeof b === "number") return 1;
+	}
+	
+	// "punctuation" before letters, marks or numbers
+	if (typeof a === "string" && typeof b === "string") {
+		const re = /^[\p{L}\p{M}\p{N}]/u;
+		const reA = re.test(a);
+		const reB = re.test(b);
+		if (!reA && reB) return -1;
+		if (reA && !reB) return 1;
+	}
+	
+	// standard comparisons
 	if (a < b) return -1;
 	if (a > b) return 1;
+	
+	// must be equal
 	return 0;
 }
 
@@ -16,10 +34,11 @@ export class Tree {
 	#order: number;
 	#root: Node|Leaf;
 	
-	constructor(order: number) {
+	constructor(order: number = 3, comparator?: comparator) {
 		if (order < 3) throw new RangeError("Minimum tree order is 3");
 						
 		this.#order = order;
+		if (comparator) compare = comparator;
 		
 		const root = new Leaf(order);
 		root.on("split", (leaf) => this.#splitTree(leaf));
@@ -31,128 +50,143 @@ export class Tree {
 		debug = d;
 	}
 	
-	set cmp(f: () => number) {
-		cmp = f;
-	}
-	
 	get order(): number {
 		return this.#order;
 	}
 	
-	lowest(): Key|undefined {
-		if (this.#root.size() === 0) return undefined;
+	get lowest(): Key|undefined {
+		if (this.#root.size === 0) return undefined;
 		
 		return this.#root.lowest(true);
 	}
 	
-	highest(): Key|undefined {
-		if (this.#root.size() === 0) return undefined;
+	get highest(): Key|undefined {
+		if (this.#root.size === 0) return undefined;
 		
 		return this.#root.highest(true);
 	}
 	
-	insert(...pairs: Array<Pair>): Record<string, any> {
-		if (debug) console.log("Tree", "insert", pairs);
+	insert(key: Key, value: Value): void {
+		if (debug) console.log("Tree", "insert", key, value);
 		
-		let count = 0;
-		const start = Date.now();
-		
-		for (const pair of pairs) {
-			let key: Key = Object.keys(pair)[0];
-			if (/^\d+$/.test(key)) key = new Number(key).valueOf();
-			const value: Value = pair[key];
-			this.#root.insert(key, value);
-			count++;
+		// convert any key that isn't a string or a number into a string
+		if (!(typeof key === "string" || typeof key === "number")) {
+			if (typeof key === "object" && key !== null) {
+				key = JSON.stringify(key);
+			} else {
+				key = String(key);
+			}
 		}
 		
-		return {count: count, time: Date.now() - start};
+		this.#root.insert(key, value);
 	}
 	
-	search(...keys: Array<Key>): Record<string, any> {
-		if (debug) console.log("Tree", "search", keys);
+	select(key: Key): Array<Value>|undefined {
+		if (debug) console.log("Tree", "select", key);
 		
-		const results = [];
-		let count = 0;
-		const start = Date.now();
-		
-		for (let key of keys) {
-			if (/^\d+$/.test(key.toString())) key = new Number(key).valueOf();
-			const result = this.#root.search(key);
-			count += result.count;
-			results.push(result);
-		}
-		
-		return Object.assign({results: results}, {count: count, time: Date.now() - start});
+		return this.#root.select(key);	
 	}
 	
-	*searchRange(start: Key, end: Key): Record<string, any> {
-		if (this.#root.size() === 0) return;
-		
-		if (/^\d+$/.test(start.toString())) start = new Number(start).valueOf();
-		if (/^\d+$/.test(end.toString())) end = new Number(end).valueOf();
+	*selectRange(start: Key, end: Key): Record<string, any> {
+		if (this.#root.size === 0) return;
 		
 		let leaf: Leaf|undefined = this.#root.find(start);
 		
 		do {
 			for (let i = 0; i < leaf.children.length; i++) {
-				if (cmp(leaf.keys[i], start) >= 0 && cmp(leaf.keys[i], end) <= 0) yield {[leaf.keys[i]]: leaf.children[i]};
-				if (cmp(leaf.keys[i], end) > 0) break;
+				if (compare(leaf.keys[i], start) >= 0 && compare(leaf.keys[i], end) <= 0) yield leaf.children[i];
+				if (compare(leaf.keys[i], end) > 0) break;
 			}
 			leaf = leaf.next
 		} while (leaf !== undefined)
 	}
 	
-	update(...args: Array<any>): Record<string, any> {
-		if (debug) console.log("Tree", "update", args);
+	update(key: Key, updater: () => Value): number {
+		if (debug) console.log("Tree", "update", key);
 		
-		const updater = args.pop();
-		const keys = args;
-		const results = [];
-		const start = Date.now();
-		
-		for (let key of keys) {
-			if (/^\d+$/.test(key.toString())) key = new Number(key).valueOf();
-			results.push(this.#root.update(key, updater));
-		}
-		
-		return Object.assign({results: results}, {time: Date.now() - start});
+		return this.#root.update(key, updater);
 	}
 	
-	// updateRange - generator or recursive function? Probably a recursive function.
-	
-	delete(...keys: Array<Key>): Record<string, any> {
-		if (debug) console.log("Tree", "delete", keys);
+	updateRange(start: Key, end: Key, updater: () => Value): number|undefined {
+		if (this.#root.size === 0) return;
 		
-		const results = [];
-		const start = Date.now();
+		let count = 0;
+		const keys = Array.from(this.keysRange(start, end));
 		
-		for (let key of keys) {
-			if (/^\d+$/.test(key.toString())) key = new Number(key).valueOf();
-			results.push(this.#root.delete(key));
+		for (const key of keys) {
+			count += this.#root.update(key, updater);
 		}
 		
-		return Object.assign({results: results}, {time: Date.now() - start});
+		return count;
 	}
 	
-	// deleteRange - can the individual pairs delete themselves? Or do we call delete on the parent leaf?
+	delete(key: Key): Record<string, any> {
+		if (debug) console.log("Tree", "delete", key);
+		
+		return this.#root.delete(key);
+	}
 	
-	*keys(order: string = "asc") {
-		if (this.#root.size() === 0) return undefined;
+	deleteRange(start: Key, end: Key): number|undefined {
+		if (this.#root.size === 0) return;
+		
+		let count = 0;
+		const keys = Array.from(this.keysRange(start, end));
+		
+		for (const key of keys) {
+			count += this.#root.delete(key);
+		}
+		
+		return count;
+	}
+	
+	at(index: number): Value|undefined {
+		if (index < 0) return undefined;
+		
+		let i = 0;
+		const values = this.values();
+		
+		let value = values.next();
+		if (index === 0) return value.value;
+		
+		while (!value.done) {
+			i++;
+			value = values.next();
+			if (i === index) return value.value
+		}
+		
+		return undefined;
+		
+	}
+	
+	*keys() {
+		if (this.#root.size === 0) return undefined;
 
-		if (order === "asc") {
-			let leaf: Leaf|undefined = this.#root.first();
+		let leaf: Leaf|undefined = this.#root.first();
 				
-			do {
-				for (const key of leaf.keys) {
-					yield key;
-				}
-				leaf = leaf.next
-			} while (leaf !== undefined)
-		}
+		do {
+			for (const key of leaf.keys) {
+				yield key;
+			}
+			leaf = leaf.next
+		} while (leaf !== undefined)
+	}
+	
+	*keysRange(start: Key, end: Key) {
+		if (this.#root.size === 0) return undefined;
+
+		let leaf: Leaf|undefined = this.#root.find(start);
+		
+		do {
+			for (let i = 0; i < leaf.keys.length; i++) {
+				if (compare(leaf.keys[i], start) >= 0 && compare(leaf.keys[i], end) <= 0) yield leaf.keys[i];
+				if (compare(leaf.keys[i], end) > 0) break;
+			}
+			leaf = leaf.next
+		} while (leaf !== undefined)
 	}
 	
 	*values() {
-		if (this.#root.size() === 0) return undefined;
+		if (this.#root.size === 0) return undefined;
 		
 		let leaf: Leaf|undefined = this.#root.first();
 		
@@ -167,7 +201,7 @@ export class Tree {
 	}
 	
 	*pairs() {
-		if (this.#root.size() === 0) return undefined;
+		if (this.#root.size === 0) return undefined;
 		
 		let leaf: Leaf|undefined = this.#root.first();
 		
@@ -219,13 +253,13 @@ export class Tree {
 	}
 	
 	stats(): Record<string, any> {
-		return this.#root.stats({nodes: 0, keys: 0, leaves: 0, values: 0, depth: this.#root.search(0).hops});
+		return this.#root.stats({nodes: 0, keys: 0, leaves: 0, values: 0, depth: this.#root.depth()});
 	}
 	
 	toString(): string {
 		const s = "order: " + this.#order;
 		
-		if (this.#root.size() === 0) {
+		if (this.#root.size === 0) {
 			return s + "\n[empty]";
 		} else {
 			return s + "\n" + this.#root.toString().trim();
