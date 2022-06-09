@@ -24,7 +24,7 @@ class Node extends node_events_1.EventEmitter {
         this.type = _1.INTERNAL;
         this.min = Math.ceil(this.order / 2) - 1;
     }
-    size() {
+    get size() {
         return this.keys.length;
     }
     lowest(recurse = false) {
@@ -45,15 +45,18 @@ class Node extends node_events_1.EventEmitter {
             console.log((this.type === _1.ROOT) ? "Root" : "Node", this.keys, "find", key);
         return this.redirect(key, "find", key);
     }
+    depth(hops = 0) {
+        return this.children[0].depth(hops + 1);
+    }
     siblings(key) {
         const siblings = [];
         const index = this.childIndex(key);
-        if (this.size() < this.min)
+        if (this.size < this.min)
             return siblings;
         if (index === 0) {
             siblings.push({ direction: "next", child: this.children[1] });
         }
-        else if (index === this.size()) {
+        else if (index === this.size) {
             siblings.push({ direction: "previous", child: this.children[index - 1] });
         }
         else {
@@ -63,17 +66,17 @@ class Node extends node_events_1.EventEmitter {
         return siblings;
     }
     childIndex(key) {
-        for (let index = 0; index < this.size(); index++) {
-            if ((0, tree_1.cmp)(key, this.keys[index]) < 0)
+        for (let index = 0; index < this.size; index++) {
+            if ((0, tree_1.compare)(key, this.keys[index]) < 0)
                 return index;
         }
-        return this.size();
+        return this.size;
     }
     redirect(key, func, ...args) {
         if (tree_1.debug)
             console.log((this.type === _1.ROOT) ? "Root" : "Node", this.keys, "redirect", func, args);
         for (let i = 0; i < this.keys.length; i++) {
-            if ((0, tree_1.cmp)(key, this.keys[i]) < 0) {
+            if ((0, tree_1.compare)(key, this.keys[i]) < 0) {
                 return this.children[i][func](...args);
             }
         }
@@ -82,12 +85,12 @@ class Node extends node_events_1.EventEmitter {
     insert(key, value) {
         if (tree_1.debug)
             console.log((this.type === _1.ROOT) ? "Root" : "Node", this.keys, "insert", key, value);
-        return this.redirect(key, "insert", key, value);
+        this.redirect(key, "insert", key, value);
     }
-    search(key, hops = 0) {
+    select(key) {
         if (tree_1.debug)
-            console.log((this.type === _1.ROOT) ? "Root" : "Node", this.keys, "search", key);
-        return this.redirect(key, "search", key, hops + 1);
+            console.log((this.type === _1.ROOT) ? "Root" : "Node", this.keys, "select", key);
+        return this.redirect(key, "select", key);
     }
     update(key, updater) {
         if (tree_1.debug)
@@ -108,8 +111,8 @@ class Node extends node_events_1.EventEmitter {
         }
         else {
             const key = (child instanceof leaf_1.Leaf) ? child.lowest() : child.lowest(true);
-            if (this.size() === 0) {
-                if ((0, tree_1.cmp)(key, this.lowest(true)) < 0) {
+            if (this.size === 0) {
+                if ((0, tree_1.compare)(key, this.lowest(true)) < 0) {
                     this.keys.unshift(this.lowest(true));
                     this.children.unshift(child);
                     this.emit("update", this.keys[0], key);
@@ -119,14 +122,14 @@ class Node extends node_events_1.EventEmitter {
                     this.children.push(child);
                 }
             }
-            else if ((0, tree_1.cmp)(key, this.highest()) > 0) {
+            else if ((0, tree_1.compare)(key, this.highest()) > 0) {
                 this.keys.push(key);
                 this.children.push(child);
             }
             else {
                 for (let i = 0; i < this.keys.length; i++) {
-                    if ((0, tree_1.cmp)(key, this.keys[i]) < 0) {
-                        const newLowest = i === 0 && (0, tree_1.cmp)(key, this.lowest(true)) < 0;
+                    if ((0, tree_1.compare)(key, this.keys[i]) < 0) {
+                        const newLowest = i === 0 && (0, tree_1.compare)(key, this.lowest(true)) < 0;
                         this.keys.splice(i, 0, (newLowest) ? this.lowest(true) : key);
                         this.children.splice((newLowest) ? 0 : i + 1, 0, child);
                         if (i === 0)
@@ -136,7 +139,7 @@ class Node extends node_events_1.EventEmitter {
                 }
             }
         }
-        if (this.size() === this.order) {
+        if (this.size === this.order) {
             this.splitNode();
         }
     }
@@ -182,7 +185,7 @@ class Node extends node_events_1.EventEmitter {
     lendChild(action) {
         if (tree_1.debug)
             console.log((this.type === _1.ROOT) ? "Root" : "Node", this.keys, "lendChild", action);
-        if (this.size() <= this.min)
+        if (this.size <= this.min)
             return undefined;
         let key = undefined;
         let child = undefined;
@@ -235,7 +238,7 @@ class Node extends node_events_1.EventEmitter {
             }
             this.children.splice(childIndex, 1);
         }
-        if (this.size() < this.min) {
+        if (this.size < this.min) {
             if (this.type === _1.ROOT) {
                 this.emit("shrink");
             }

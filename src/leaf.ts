@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { Key, Value } from ".";
-import { debug, cmp } from "./tree";
+import { debug, compare } from "./tree";
 
 export interface Leaf {
 	[index: string]: any;
@@ -33,7 +33,7 @@ export class Leaf extends EventEmitter {
 		return this.keys[this.keys.length-1];
 	}
 	
-	size(): number {
+	get size(): number {
 		return this.keys.length;
 	}
 	
@@ -45,6 +45,10 @@ export class Leaf extends EventEmitter {
 		return this;
 	}
 	
+	depth(hops: number = 0): number {
+		return hops+1;
+	}
+	
 	insert(key: Key, value: Value): void {
 		if (debug) console.log("Leaf", this.keys, "insert", key, value);
 		
@@ -53,12 +57,12 @@ export class Leaf extends EventEmitter {
 		if (index >= 0) {
 			this.children[index].push(value)
 		} else {
-			if (this.size() === 0 || cmp(key, this.highest()) > 0) {
+			if (this.size === 0 || compare(key, this.highest()) > 0) {
 				this.keys.push(key);
 				this.children.push([value]);
 			} else {
 				for (let i = 0; i < this.keys.length; i++) {
-					if (cmp(key, this.keys[i]) < 0) {
+					if (compare(key, this.keys[i]) < 0) {
 						this.keys.splice(i, 0, key);
 						this.children.splice(i, 0, [value]);
 						if (i === 0) this.emit("update", this.keys[1], key);
@@ -68,46 +72,38 @@ export class Leaf extends EventEmitter {
 			}
 		}
 		
-		if (this.size() > this.order) this.splitLeaf();
+		if (this.size > this.order) this.splitLeaf();
 	}
 	
-	search(key: Key, hops: number = 0): Record<string, any> {
-		if (debug) console.log("Leaf", this.keys, "search", key);
-		
-		let count = 0;
-		let children: Array<Value> = [];
+	select(key: Key): Array<Value>|undefined {
+		if (debug) console.log("Leaf", this.keys, "select", key);
+
 		const index = this.keys.indexOf(key);
 		
 		if (index >= 0) {
-			children = this.children[index];
-			count = children.length;
+			return this.children[index];
 		}
 		
-		return {key: key, count: count, values: children, hops: hops+1};
+		return;
 	}
 	
-	update(key: Key, updater: Function): Record<string, any> {
+	update(key: Key, updater: Function): number {
 		if (debug) console.log("Leaf", this.keys, "update", key);
 		
 		let count = 0;
-		let before = undefined;
-		let after = undefined;
 		const index = this.keys.indexOf(key);
 		
 		if (index >= 0) {
-			before = [];
 			for (let i = 0; i < this.children[index].length; i++) {
-				before.push(JSON.parse(JSON.stringify(this.children[index][i])));
 				this.children[index][i] = updater(this.children[index][i]);
 				count++;
 			}
-			after = this.children[index];
 		}
 		
-		return {key: key, count: count, before: before, after: after};
+		return count;
 	}
 	
-	delete(key: Key): Record<string, any> {
+	delete(key: Key): number {
 		if (debug) console.log("Leaf", this.keys, "delete", key);
 		
 		let count = 0;
@@ -121,11 +117,12 @@ export class Leaf extends EventEmitter {
 			
 			if (index === 0) this.emit("update", key, this.lowest());
 				
-			if (this.size() < this.min) {
+			if (this.size < this.min) {
 				this.emit("borrow", this.lowest(), this);
 			}
 		}
-		return {key: key, count: count};
+		
+		return count;
 	}
 	
 	splitLeaf(): void {
@@ -149,12 +146,12 @@ export class Leaf extends EventEmitter {
 	addChild(key: Key, child: Array<Value>): void {
 		if (debug) console.log("Leaf", this.keys, "addChild", key, child);
 		
-		if (this.size() === 0 || cmp(key, this.highest()) > 0) {
+		if (this.size === 0 || compare(key, this.highest()) > 0) {
 			this.keys.push(key);
 			this.children.push(child);
 		} else {
-			for (let i = 0; i < this.size(); i++) {
-				if (cmp(key, this.keys[i]) < 0) {
+			for (let i = 0; i < this.size; i++) {
+				if (compare(key, this.keys[i]) < 0) {
 					this.keys.splice(i, 0, key);
 					this.children.splice(i, 0, child);
 					if (i === 0) this.emit("update", this.keys[1], key);
@@ -163,12 +160,12 @@ export class Leaf extends EventEmitter {
 			}
 		}
 		
-		if (this.size() > this.order) this.splitLeaf();
+		if (this.size > this.order) this.splitLeaf();
 	}
 	
 	lendChild(action: string): Record<string, Key|Value>|undefined {
 		if (debug) console.log("Leaf", this.keys, "lendChild", action);	
-		if (this.size() <= this.min) return undefined;
+		if (this.size <= this.min) return undefined;
 
 		let key = undefined;
 		let child = undefined;

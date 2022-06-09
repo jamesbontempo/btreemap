@@ -20,7 +20,7 @@ class Leaf extends node_events_1.EventEmitter {
     highest() {
         return this.keys[this.keys.length - 1];
     }
-    size() {
+    get size() {
         return this.keys.length;
     }
     first() {
@@ -28,6 +28,9 @@ class Leaf extends node_events_1.EventEmitter {
     }
     find() {
         return this;
+    }
+    depth(hops = 0) {
+        return hops + 1;
     }
     insert(key, value) {
         if (tree_1.debug)
@@ -37,13 +40,13 @@ class Leaf extends node_events_1.EventEmitter {
             this.children[index].push(value);
         }
         else {
-            if (this.size() === 0 || (0, tree_1.cmp)(key, this.highest()) > 0) {
+            if (this.size === 0 || (0, tree_1.compare)(key, this.highest()) > 0) {
                 this.keys.push(key);
                 this.children.push([value]);
             }
             else {
                 for (let i = 0; i < this.keys.length; i++) {
-                    if ((0, tree_1.cmp)(key, this.keys[i]) < 0) {
+                    if ((0, tree_1.compare)(key, this.keys[i]) < 0) {
                         this.keys.splice(i, 0, key);
                         this.children.splice(i, 0, [value]);
                         if (i === 0)
@@ -53,38 +56,30 @@ class Leaf extends node_events_1.EventEmitter {
                 }
             }
         }
-        if (this.size() > this.order)
+        if (this.size > this.order)
             this.splitLeaf();
     }
-    search(key, hops = 0) {
+    select(key) {
         if (tree_1.debug)
-            console.log("Leaf", this.keys, "search", key);
-        let count = 0;
-        let children = [];
+            console.log("Leaf", this.keys, "select", key);
         const index = this.keys.indexOf(key);
         if (index >= 0) {
-            children = this.children[index];
-            count = children.length;
+            return this.children[index];
         }
-        return { key: key, count: count, values: children, hops: hops + 1 };
+        return;
     }
     update(key, updater) {
         if (tree_1.debug)
             console.log("Leaf", this.keys, "update", key);
         let count = 0;
-        let before = undefined;
-        let after = undefined;
         const index = this.keys.indexOf(key);
         if (index >= 0) {
-            before = [];
             for (let i = 0; i < this.children[index].length; i++) {
-                before.push(JSON.parse(JSON.stringify(this.children[index][i])));
                 this.children[index][i] = updater(this.children[index][i]);
                 count++;
             }
-            after = this.children[index];
         }
-        return { key: key, count: count, before: before, after: after };
+        return count;
     }
     delete(key) {
         if (tree_1.debug)
@@ -97,11 +92,11 @@ class Leaf extends node_events_1.EventEmitter {
             this.children.splice(index, 1);
             if (index === 0)
                 this.emit("update", key, this.lowest());
-            if (this.size() < this.min) {
+            if (this.size < this.min) {
                 this.emit("borrow", this.lowest(), this);
             }
         }
-        return { key: key, count: count };
+        return count;
     }
     splitLeaf() {
         if (tree_1.debug)
@@ -119,13 +114,13 @@ class Leaf extends node_events_1.EventEmitter {
     addChild(key, child) {
         if (tree_1.debug)
             console.log("Leaf", this.keys, "addChild", key, child);
-        if (this.size() === 0 || (0, tree_1.cmp)(key, this.highest()) > 0) {
+        if (this.size === 0 || (0, tree_1.compare)(key, this.highest()) > 0) {
             this.keys.push(key);
             this.children.push(child);
         }
         else {
-            for (let i = 0; i < this.size(); i++) {
-                if ((0, tree_1.cmp)(key, this.keys[i]) < 0) {
+            for (let i = 0; i < this.size; i++) {
+                if ((0, tree_1.compare)(key, this.keys[i]) < 0) {
                     this.keys.splice(i, 0, key);
                     this.children.splice(i, 0, child);
                     if (i === 0)
@@ -134,13 +129,13 @@ class Leaf extends node_events_1.EventEmitter {
                 }
             }
         }
-        if (this.size() > this.order)
+        if (this.size > this.order)
             this.splitLeaf();
     }
     lendChild(action) {
         if (tree_1.debug)
             console.log("Leaf", this.keys, "lendChild", action);
-        if (this.size() <= this.min)
+        if (this.size <= this.min)
             return undefined;
         let key = undefined;
         let child = undefined;
