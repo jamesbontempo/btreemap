@@ -1,40 +1,5 @@
 const expect = require("chai").expect;
-const { Tree } = require("../dist/tree");
-
-function createTree(order, count, mode) {
-	const tree = new Tree(order);
-	
-	const keys = [];
-	const values = [];
-	const pairs = [];
-	
-	for (let i = 1; i <= count; i++) {
-		let code, rand, key, value;
-		switch(mode) {
-			case "rand":
-				code = i * (Math.floor(Math.random() * count) + 1);
-				key = (i % 2 === 0) ? String.fromCharCode(code) : (i % 7 === 0) ? i - 2 : i;
-				rand = String.fromCharCode(i * (Math.floor(Math.random() * count) + 1));
-				value = {key: key, id: i, code: code, rand: rand};
-				break;
-			case "desc":
-				key = count - (i - 1);
-				value = {key: key, id: key, value: key.toString()};
-				break;
-			default:
-				key = i;
-				value = {key: key, id: key, value: key.toString()};
-		}
-		
-		tree.insert(key, value);
-		
-		keys.push(key);
-		values.push(value);
-		pairs.push({[key]: value});
-	}
-	
-	return {tree: tree, keys: keys, values: values, pairs: pairs};
-}
+const { Tree } = require("../dist/toe-b");
 
 function convert(key) {
 	if (typeof key === "object" && key !== null) {
@@ -68,6 +33,51 @@ function compare(a, b) {
 	return 0;
 }
 
+function createTree(options) {
+	const order = options.order || 3;
+	const indexer = options.indexer;
+	const compare = options.comparator;
+	const count = options.count || 100;
+	const mode = options.mode || "asc";
+	const debug = options.debug || false;
+	
+	const tree = new Tree(order, {indexer: indexer, comparator: compare, debug: debug});
+	
+	const keys = [];
+	const values = [];
+	const pairs = [];
+	
+	for (let i = 1; i <= count; i++) {
+		let code, rand, key, value;
+		
+		switch(mode) {
+			case "rand":
+				code = i * (Math.floor(Math.random() * count) + 1);
+				key = (i % 2 === 0) ? String.fromCharCode(code) : (i % 7 === 0) ? i - 2 : i;
+				rand = String.fromCharCode(i * (Math.floor(Math.random() * count) + 1));
+				value = {key: key, id: i, code: code, rand: rand};
+				break;
+			case "desc":
+				key = count - (i - 1);
+				value = {key: key, id: key, value: key.toString()};
+				break;
+			case "asc":
+			default:
+				key = i;
+				value = {key: key, id: key, value: key.toString()};
+		}
+		
+		tree.insert(value);
+		if (options.debug) tree.print();
+		
+		keys.push(key);
+		values.push(value);
+		pairs.push({[key]: value});
+	}
+	
+	return {tree: tree, keys: keys, values: values, pairs: pairs};
+}
+
 describe("oobps tests", () => {
 	
 	it("Creates a new tree of order 3", () => {
@@ -76,7 +86,7 @@ describe("oobps tests", () => {
 		expect(tree.lowest).to.equal(undefined);
 		expect(tree.highest).to.equal(undefined);
 		
-		const stats = tree.stats();
+		const stats = tree.stats;
 		expect(stats.nodes).to.equal(0);
 		expect(stats.keys).to.equal(0);
 		expect(stats.leaves).to.equal(1);
@@ -85,12 +95,12 @@ describe("oobps tests", () => {
 	});
 	
 	it("Adds a single key/value pair", () => {
-		const test = createTree(3, 1);
+		const test = createTree({order: 3, count: 1});
 		
 		expect(test.tree.lowest).to.equal(1);
 		expect(test.tree.highest).to.equal(1);
 		
-		const stats = test.tree.stats();
+		const stats = test.tree.stats;
 		expect(stats.nodes).to.equal(0);
 		expect(stats.keys).to.equal(1);
 		expect(stats.leaves).to.equal(1);
@@ -99,12 +109,12 @@ describe("oobps tests", () => {
 	});
 	
 	it("Adds enough key/value pairs to generate several splits", () => {
-		const test = createTree(3, 8);
+		const test = createTree({order: 3, count: 8});
 
 		expect(test.tree.lowest).to.equal(1);
 		expect(test.tree.highest).to.equal(8);
 		
-		const stats = test.tree.stats();
+		const stats = test.tree.stats;
 		expect(stats.nodes).to.equal(3);
 		expect(stats.keys).to.equal(8);
 		expect(stats.leaves).to.equal(4);
@@ -113,14 +123,14 @@ describe("oobps tests", () => {
 	});
 	
 	it ("Clears a tree", () => {
-		const test = createTree(3, 16);
+		const test = createTree({order: 3, count: 16});
 		
 		test.tree.clear();
 		
 		expect(test.tree.lowest).to.equal(undefined);
 		expect(test.tree.highest).to.equal(undefined);
 		
-		const stats = test.tree.stats();
+		const stats = test.tree.stats;
 		expect(stats.nodes).to.equal(0);
 		expect(stats.keys).to.equal(0);
 		expect(stats.leaves).to.equal(1);
@@ -135,14 +145,14 @@ describe("oobps tests", () => {
 	it("Adds a large number of random key/value pairs", function() {
 		const order = 10;
 		const count = 500;
-		const test = createTree(order, count, "rand");
+		const test = createTree({order: order, count: count, mode: "rand"});
 		
 		test.keys = test.keys.sort((a, b) => compare(a, b)).filter((e, i, a) => e !== a[i-1]);
 		
 		expect(test.tree.lowest).to.equal(test.keys[0]);
 		expect(test.tree.highest).to.equal(test.keys[test.keys.length-1]);
 		
-		const stats = test.tree.stats();
+		const stats = test.tree.stats;
 		expect(stats.nodes).to.be.within((2*(Math.ceil(order/2)-1))**(stats.depth-3), order**(stats.depth-1));
 		expect(stats.keys).to.equal(test.keys.length);
 		expect(stats.leaves).to.be.within(Math.ceil(stats.keys/order), Math.ceil(stats.keys/(Math.ceil(order/2)-1)));
@@ -151,7 +161,7 @@ describe("oobps tests", () => {
 	});
 	
 	it("Converts non-string/non-number keys into a string", () => {
-		const test = createTree(3, 10);
+		const test = createTree({order: 3, count: 10});
 		
 		const inserts = [
 			{key: 18014398509481982n, type: "bigint"},
@@ -163,7 +173,7 @@ describe("oobps tests", () => {
 		]
 		
 		for (const insert of inserts) {
-			test.tree.insert(insert.key, insert.type);
+			test.tree.insert(insert);
 		}
 		
 		const keys = Array.from(test.tree.keys());
@@ -174,8 +184,8 @@ describe("oobps tests", () => {
 		}
 	});
 	
-	it("Selects each of a set of keys", () => {
-		const test = createTree(3, 25);
+	it("Selects values for each of a set of keys", () => {
+		const test = createTree({order: 3, count: 25});
 
 		const searchKeys = [1, 5, 10];
 		
@@ -186,8 +196,8 @@ describe("oobps tests", () => {
 		}
 	});
 	
-	it("Selects a random range of values", () => {
-		const test = createTree(5, 200, "rand");
+	it("Selects values for a random range of keys", () => {
+		const test = createTree({order: 5, count: 200, mode: "rand"});
 		
 		test.keys = test.keys.sort((a, b) => compare(a, b)).filter((e, i, a) => e !== a[i-1]);
 		
@@ -202,13 +212,13 @@ describe("oobps tests", () => {
 		expect(values[values.length-1][0].key).to.equal(end);
 	});
 	
-	it("Updates each of a random set of key/value pairs", () => {
-		const test = createTree(4, 100, "rand");
+	it("Updates values for each of a random set of keys", () => {
+		const test = createTree({order: 4, count: 100, mode: "rand"});
 		
 		const updates = test.keys.sort((a, b) => compare(a, b)).filter((e, i) => { if (i % 7 === 0) return e;});
 		
 		for (const u of updates) {
-			test.tree.insert(u, {id: "foo"});
+			test.tree.insert({key: u, id: "foo"});
 			
 			let results = test.tree.update(u, (v) => {v.code = "bar"; v.updated = Date.now(); return v;});
 			expect(results).to.be.at.least(2);
@@ -220,15 +230,15 @@ describe("oobps tests", () => {
 		}
 	});
 	
-	it("Updates a random range of key/value pairs", () => {
+	it("Updates values for a random range of keys", () => {
 		
 	});
 	
-	it("Deletes each of a random set of key/value pairs", () => {
-		const test = createTree(8, 100, "rand");
+	it("Deletes values for each of a random set of keys", () => {
+		const test = createTree({order: 8, count: 20, mode: "rand", debug: false});
 		
 		test.keys = test.keys.sort((a, b) => compare(a, b)).filter((e, i, a) => e !== a[i-1]);
-		const deletes = test.keys.filter((e, i) => { if (i % 10 === 0) return e;});
+		const deletes = test.keys.filter((e, i) => { if (i % 3 === 0) return e;});
 		
 		for (const d of deletes) {
 			const result = test.tree.delete(d);
@@ -236,11 +246,20 @@ describe("oobps tests", () => {
 			test.keys.splice(test.keys.indexOf(d), 1);
 		}
 		
+		let count = 0;
+		
+		for (const pair of test.pairs) {
+			if (test.keys.includes(pair[Object.keys(pair)[0]].key)) count++;
+		}
+		
+		const stats = test.tree.stats;
+		expect(stats.keys).to.equal(test.keys.length);
+		expect(stats.values).to.equal(count);
 		expect(Array.from(test.tree.keys())).to.deep.equal(test.keys);
 	});
 	
-	it("Deletes a random range of key/value pairs", () => {
-		const test = createTree(3, 25, "rand");
+	it("Deletes values for a random range of key", () => {
+		const test = createTree({order: 3, count: 25, mode: "rand"});
 		
 		test.keys = test.keys.sort((a, b) => compare(a, b)).filter((e, i, a) => e !== a[i-1]);
 		
@@ -257,7 +276,7 @@ describe("oobps tests", () => {
 	});
 	
 	it("Accesses the keys, values, and pairs iterators", () => {
-		const test = createTree(8, 50, "desc");
+		const test = createTree({order: 8, count: 50, mode: "desc"});
 		
 		test.keys = test.keys.sort((a, b) => compare(a, b)).filter((e, i, a) => e !== a[i-1]);
 		test.values = test.values.sort((a, b) => compare(a.key, b.key));
@@ -268,13 +287,59 @@ describe("oobps tests", () => {
 		expect(Array.from(test.tree.pairs())).to.deep.equal(test.pairs);		
 	});
 	
-	it("Retrieves a value by index", () => {
-		const test = createTree(8, 50);
+	it("Retrieves a key by index", () => {
+		const test = createTree({order: 8, count: 50, mode: "rand"});
 		
-		expect(test.tree.at(-1)).to.equal(undefined);
-		expect(test.tree.at(0)).to.deep.equal({key: 1, id: 1, value: "1"});
-		expect(test.tree.at(24)).to.deep.equal({key: 25, id: 25, value: "25"});
-		expect(test.tree.at(50)).to.equal(undefined);
+		test.keys = test.keys.sort((a, b) => compare(a, b)).filter((e, i, a) => e !== a[i-1]);
+		
+		const stats = test.tree.stats;
+		expect(test.tree.keyAt(-1)).to.equal(undefined);
+		expect(test.tree.keyAt(0)).to.equal(test.keys[0]);
+		expect(test.tree.keyAt(Math.ceil(test.keys.lenght/2))).to.equal(test.keys[Math.ceil(test.keys.lenght/2)]);
+		expect(test.tree.keyAt(stats.keys-1)).to.equal(test.keys[test.keys.length-1]);
+		expect(test.tree.keyAt(50)).to.equal(undefined);
+	});
+	
+	it("Retrieves a value by index", () => {
+		// do this with a "rand" instead?
+		const test = createTree({order: 8, count: 50});
+		
+		const stats = test.tree.stats;
+		expect(test.tree.valueAt(-1)).to.equal(undefined);
+		expect(test.tree.valueAt(0)).to.deep.equal({key: 1, id: 1, value: "1"});
+		expect(test.tree.valueAt(24)).to.deep.equal({key: 25, id: 25, value: "25"});
+		expect(test.tree.valueAt(stats.values-1)).to.deep.equal({key: 50, id: 50, value: "50"});
+		expect(test.tree.valueAt(50)).to.equal(undefined);
+	});
+	
+	it("Provides a custom indexer", () => {
+		let idx = (v) => {
+			return v.key + "-" + v.id;
+		}
+		
+		const test = createTree({count: 25, mode: "rand", indexer: idx});
+		
+		const keys = [];
+		for (const value of test.values) {
+			keys.push(value.key + "-" + value.id);
+		}
+		
+		expect(Array.from(test.tree.keys())).to.deep.equal(keys.sort((a, b) => compare(a, b)));
+	});
+	
+	it("Provides a custom comparator", () => {
+		let cmp = (a, b) => {
+			a = String(a);
+			b = String(b);
+			if (a > b) return -1;
+			if (a < b) return 1;
+			return 0;
+		}
+		
+		const test = createTree({order: 3, count: 35, mode: "rand", comparator: cmp, debug: false});
+		
+		test.keys = test.keys.sort((a, b) => cmp(a, b)).filter((e, i, a) => e !== a[i-1]);
+		expect(Array.from(test.tree.keys())).to.deep.equal(test.keys);
 	});
 });
 
