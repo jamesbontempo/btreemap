@@ -1,7 +1,7 @@
 {
-  "name": "toe-b",
+  "name": "btreemap",
   "version": "0.1.0",
-  "description": "A Typescript, object-oriented, event-driven, B+ tree",
+  "description": "A type-aware, persistent, and indexed data store with a Map-like API and B+ Tree range-based access methods",
   "files": [
     "dist"
   ],
@@ -12,8 +12,16 @@
   },
   "keywords": [
     "typescript",
+	"binary",
+	"b",
+	"bplus",
     "b+",
-    "tree"
+    "tree",
+    "map",
+    "sort",
+    "key",
+    "index",
+	"range"
   ],
   "author": "James BonTempo",
   "license": "MIT",
@@ -28,5 +36,8 @@
     "mocha": "^10.0.0",
     "nyc": "^15.1.0",
     "typescript": "^4.7.3"
+  },
+  "dependencies": {
+    "bson": "^4.6.4"
   }
 }
