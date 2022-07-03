@@ -161,11 +161,11 @@ Returns a value associated with a specified key from a `BTreeMap` object or an i
 
 The key for the associated value to return from the `BTreeMap` object.
 
-`endKey` (optional)
+`endKey`
 
  If an `endKey` is provided, `get()` returns a new iterator object for values in the `BTreeMap` object, from `key` to `endKey`, in sorted order.
 
-`inclusive` (optional)
+`inclusive`
 
 A boolean indicating whether to include the associated value for the `endKey`. Default is `true`.
 
@@ -208,11 +208,11 @@ If an `endKey` is provided, `delete()` removes keys in the range from `key` to `
 
 A boolean indicating whether to include the `endKey`. Default is `true`.
 
+See `get` for examples of how `endKey` and `inclusive` can be used.
+
 #### Return value
 
 `true` if a key, or range of keys, in the `BTreeMap` object existed and have been removed, or `false` if the key does not exist, or there are no keys in the range.
-
-See `get` for examples of how `endKey` and `inclusive` can be used.
 
 ### BTreeMap.clear()
 
@@ -296,11 +296,11 @@ The highest key that should be included in the iterator. Default is the highest 
 
 A boolean indicating whether to include the `end` element. Default is `true`.
 
+See `keys` for examples of how `start`, `end`, and `inclusive` can be used.
+
 #### Return value
 
 A new `BTreeMap` iterator object.
-
-See `keys` for examples of how `start`, `end`, and `inclusive` can be used.
 
 ### BTreeMap.entries()
 
@@ -326,11 +326,11 @@ The highest key that should be included in the iterator. Default is the highest 
 
 A boolean indicating whether to include the `end` element. Default is `true`.
 
+See `keys` for examples of how `start`, `end`, and `inclusive` can be used.
+
 #### Return value
 
 A new `BTreeMap` iterator object.
-
-See `keys` for examples of how `start`, `end`, and `inclusive` can be used.
 
 ## Functional methods
 
@@ -346,6 +346,10 @@ If `start` or `end` are provided, executes the function for keys within the rang
 
 #### Parameters
 
+`function`
+
+The function to be executed, invoked with three arguments: the value, the key, and the `BTreeMap` object.
+
 `start`
 
 The lowest key for which the function should be executed. Default is the lowest key in the `BTreeMap` object.
@@ -358,11 +362,11 @@ The highest key for which the function should be executed. Default is the highes
 
 A boolean indicating whether to execute the function for the `end` element. Default is `true`.
 
+See `keys` for examples of how `start`, `end`, and `inclusive` can be used.
+
 #### Return value
 
 `undefined`
-
-See `keys` for examples of how `start`, `end`, and `inclusive` can be used.
 
 ## Input/Output methods
 
