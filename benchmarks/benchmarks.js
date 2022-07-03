@@ -6,7 +6,7 @@ const BPlusIndex = require("bplus-index");
 // modules to test, each using its default comparator
 const modules = {
 	"btreemap": {
-		create: (order) => new BTreeMap(order),
+		create: (order) => new BTreeMap({order: order, unique: true}),
 		set: "set",
 		get: "get",
 		delete: "delete"
