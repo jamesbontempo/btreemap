@@ -89,7 +89,7 @@ Returns the order of the `BTreeMap` object's B+ Tree.
 
 ### BTreeMap.size
 
-Returns the number of keys in a `BTreeMap` object. If configured for unique keys, this will be equal to the number of values; otherwise, the number of values may be greater (also see the note on `stats` below)
+Returns the number of keys in a `BTreeMap` object. If configured for unique keys, this will be equal to the number of values; otherwise, the number of values may be greater.
 
 ### BTreeMap.stats
 
@@ -182,7 +182,7 @@ btm.get(1);
 // Returns an iterator for the values associated with keys 1 through 10
 btm.get(1, 10);
 
-// Returns an iterator for the values associated with keys 1 through 9
+// Returns an iterator for the values associated with keys 1 up to but not including 10
 btm.get(1, 10, false);
 ```
 
@@ -268,8 +268,8 @@ btm.keys(1, 10);
 // Returns an iterator for keys from the lowest key to 10
 btm.keys(undefined, 10)
 
-// Returns an interator for keys 1 up to but not including the highest key
-btm.keys(1, undefined, false);
+// Returns an interator for keys 10 up to but not including the highest key
+btm.keys(10, undefined, false);
 ```
 
 ### BTreeMap.values()
@@ -420,7 +420,7 @@ A string representing the `BTreeMap` object.
 
 ## Benchmarks
 
-Twenty rounds of benchmark tests were conducted to compare `btreemap` with `sorted-btree` and `bplus-index`. Each test involved the following for ascending and descending integer keys, and randomly generated keys integer and character keys:
+Twenty rounds of benchmark tests were conducted to compare `btreemap` with `sorted-btree` and `bplus-index`. Each test involved the following for ascending and descending integer keys, and randomly generated mix of integer and character keys:
 * Inserting key/value pairs in batches of 1000, 10000, 100000, and 1000000
 * Retrieving values for a random 20% of the keys
 * Updating values for a random 10% of the keys
