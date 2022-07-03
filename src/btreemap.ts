@@ -1,36 +1,14 @@
 import { closeSync, openSync, readSync, statSync, writeSync} from "node:fs";
 import { deserialize, serialize } from "bson";
 
-// const lettersFirst = /^[\p{L}\p{M}\p{N}]/u;
-
 function typeOf(item: any): string {
 	const typeOfItem = typeof item;
 	if (typeOfItem !== "object") {
 		return typeOfItem;
+	} else if (item === null) {
+		return "null";
 	} else {
-		if (item === null) return "null";
 		return Object.prototype.toString.call(item).slice(8,-1).toLowerCase();
-	}
-}
-
-function convertKey(key: any): undefined|null|number|Date|string|Array<any>|Object {
-	const typeOfKey = typeOf(key);
-	switch (typeOfKey) {
-		case "null":
-		case "boolean":
-		case "number":
-		case "date":
-		case "string":
-		case "regexp":
-		case "array":
-		case "object":
-			return key;
-		case "undefined":
-			return null;
-		case "bigint":
-			return String(key) + "n";
-		default:
-			return String(key);
 	}
 }
 
@@ -61,8 +39,9 @@ export interface IBTreeMap {
 }
 
 export class BTreeMap implements IBTreeMap {
+	#unique: boolean = true;
 	#order: number = 3;
-	#compare: Function = (a: any, b: any): number => {	
+	#compare: Function = (a: any, b: any): number => {
 		const typeOfA = typeOf(a);
 		const typeOfB = typeOf(b);
 		if (typeOfA === typeOfB) {
@@ -71,7 +50,6 @@ export class BTreeMap implements IBTreeMap {
 			return (typeOfA < typeOfB) ? -1 : 1;
 		}
 	};
-	#unique: boolean = false;
 	#stats: Record<string, number>;
 	#map: Map<any, any>;
 	#root: Node|Leaf;
@@ -80,10 +58,10 @@ export class BTreeMap implements IBTreeMap {
 		{length: 1, get: () => (this.#unique === false) ? 0 : 1, set: (v: number) => this.#unique = (v === 0) ? false : true},
 	];
 	
-	constructor(order: number|null = 3, options: any = {}) {
-		if (order && order >= 3) this.#order = order;
-		if (options.comparator) this.#compare = options.comparator;
-		if (options.unique) this.#unique = options.unique;
+	constructor(options: any = {}) {
+		if (options.unique !== undefined) this.#unique = options.unique;
+		if (options.order !== undefined && options.order >= 3) this.#order = options.order;
+		if (options.comparator !== undefined) this.#compare = options.comparator;
 		this.#stats = {depth: 0, nodes: 0, leaves: 0, keys: 0, values: 0};
 		this.#map = new Map();
 		this.#root = new Leaf(this.#order, this.#compare, this.#stats);
@@ -118,8 +96,6 @@ export class BTreeMap implements IBTreeMap {
 	}
 	
 	set(key: any, value: any): BTreeMap {
-		key = convertKey(key)
-		if (key === undefined) return this;
 		const values = this.#map.get(key);
 		if (values !== undefined) {
 			if (this.#unique) {
@@ -148,7 +124,11 @@ export class BTreeMap implements IBTreeMap {
 		if (endKey) {
 			return this.values(key, endKey, inclusive);
 		} else {
-			return (this.#unique) ? this.#map.get(key)[0] : this.#map.get(key);
+			if (this.#unique) {
+				return (this.#map.get(key)) ? this.#map.get(key)[0] : undefined;
+			} else {
+				return this.#map.get(key);
+			}
 		}
 	}
 	
@@ -465,7 +445,7 @@ class Node {
 	}
 	
 	toString(map: Map<any, any>, level: number = 0): string {
-		let output = "|  ".repeat(level) + ((level === 0) ? "Root - " : "Node - ") + this.keys;
+		let output = "|  ".repeat(level) + ((level === 0) ? "Root - " : "Node - ") + String(this.keys);
 		for (let i = 0, length = this.children.length; i < length; i++) {
 			output += "\n" + this.children[i].toString(map, level+1)
 		}
@@ -566,9 +546,9 @@ class Leaf {
 	toString(map: Map<any, any>, level: number = 0): string {
 		let output = "|  ".repeat(level) + "Leaf";
 		for (const key of this.keys) {
-			output += "\n" + "|  ".repeat(level+1) + key + ": " + map.get(key);
+			output += "\n" + "|  ".repeat(level+1) + String(key) + ": " + String(map.get(key));
 		}
-		if (this.next) output += " --> " + this.next.lowest;
+		if (this.next) output += " --> " + String(this.next.lowest);
 		return output;
 	}
 }

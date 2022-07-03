@@ -12,19 +12,6 @@ function typeOf(item) {
 	}
 }
 
-function typeIndexOf(type) {
-	switch(type) {
-		case "null": return 0;
-		case "boolean": return 1;
-		case "number": return 2;
-		case "date": return 3;
-		case "string": return 4;
-		case "regexp": return 5;
-		case "array": return 6;
-		default: return 7;
-	}
-}
-
 function compare(a, b) {	
 	const typeOfA = typeOf(a);
 	const typeOfB = typeOf(b);
@@ -35,14 +22,14 @@ function compare(a, b) {
 	}
 }
 
-function createTree(options) {
+function createTree(options = {}) {
 	const order = options.order || 3;
 	const compare = options.comparator;
 	const count = options.count || 100;
 	const unique = options.unique || false;
 	const mode = options.mode || "asc";
 	
-	const tree = new BTreeMap(order, {comparator: compare, unique: unique});
+	const tree = new BTreeMap({order: order, comparator: compare, unique: unique});
 	
 	const keys = [];
 	const values = [];
@@ -86,7 +73,7 @@ function createTree(options) {
 describe("oobps tests", () => {
 	
 	it("Creates a new tree of order 3", () => {
-		const tree = new BTreeMap(3);
+		const tree = new BTreeMap({order: 3});
 		expect(tree.order).to.equal(3);
 		expect(tree.lowest).to.equal(undefined);
 		expect(tree.highest).to.equal(undefined);
@@ -181,7 +168,7 @@ describe("oobps tests", () => {
 	});
 	
 	it ("Sets a range of different key types", () => {
-		const tree = new BTreeMap(3)
+		const tree = new BTreeMap({order: 3, unique: false})
 		
 		tree.set(undefined, 0);
 		tree.set(null, 1234);
@@ -194,7 +181,8 @@ describe("oobps tests", () => {
 		tree.set("string", "string");
 		tree.set([4, 5, 6], [4, 5, 6]);
 		tree.set([1, 2, 3], [1, 2, 3]);
-		tree.set(new WeakSet(), "WS");
+		const ws = new WeakSet();
+		tree.set(ws, "WS");
 		tree.set(new Set([1]), 1);
 		tree.set(new WeakMap(), "WM");
 		tree.set(new Map([[1, 1]]), [1, 1]);
@@ -207,11 +195,11 @@ describe("oobps tests", () => {
 		tree.set(/^$/, "regex");
 		
 		expect(tree.lowest).to.deep.equal([1, 2, 3]);
-		expect(tree.highest).to.equal("string");
-		expect(tree.get(null)).to.deep.equal([0, 1234]);
-		expect(tree.get(String(sym))).to.deep.equal(["foo"]);
+		expect(tree.highest).to.equal(ws);
+		expect(tree.get(null)).to.deep.equal([1234]);
+		expect(tree.get(sym)).to.deep.equal(["foo"]);
 		expect(tree.get(true)).to.deep.equal(["true"]);
-		expect(tree.get(String(1234n)+"n")).to.deep.equal([5678]);
+		expect(tree.get(1234n)).to.deep.equal([5678]);
 		expect(tree.get(obj)).to.deep.equal(["object", "another object"]);
 	});
 	
@@ -396,27 +384,16 @@ describe("oobps tests", () => {
 	it("Saves and then loads a tree", () => {
 		const test = createTree({order: 10, count: 2000, mode: "rand"});
 		
-		test.tree.set(undefined, 0);
 		test.tree.set(null, 1234);
-		const sym = Symbol("foo");
-		test.tree.set(sym, "foo");
 		test.tree.set(true, "true");
 		test.tree.set(1, 1);
-		test.tree.set(1234n, 5678);
 		test.tree.set(new Date(), "date");
 		test.tree.set("string", "string");
 		test.tree.set([4, 5, 6], [4, 5, 6]);
 		test.tree.set([1, 2, 3], [1, 2, 3]);
-		test.tree.set(new WeakSet(), "WS");
-		test.tree.set(new Set([1]), 1);
-		test.tree.set(new WeakMap(), "WM");
-		test.tree.set(new Map([[1, 1]]), [1, 1]);
 		const obj = {id: 1};
 		test.tree.set(obj, "object");
 		test.tree.set({id: 1}, "another object");
-		test.tree.set(() => false, false);
-		const func = () => true;
-		test.tree.set(func, "a function?");
 		test.tree.set(/^$/, "regex");
 		
 		test.tree.save(join(__dirname, "./test.btm"));
@@ -435,7 +412,7 @@ describe("oobps tests", () => {
 	});
 	
 	it("Prints out a tree", () => {
-		const tree = new BTreeMap(3);
+		const tree = new BTreeMap({order: 3, unique: false});
 		tree.set(1, 1);
 		tree.set(2, 2);
 		tree.set(3, 3);

@@ -10,45 +10,26 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
     return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
-var _BTreeMap_order, _BTreeMap_compare, _BTreeMap_unique, _BTreeMap_stats, _BTreeMap_map, _BTreeMap_root, _BTreeMap_headers;
+var _BTreeMap_unique, _BTreeMap_order, _BTreeMap_compare, _BTreeMap_stats, _BTreeMap_map, _BTreeMap_root, _BTreeMap_headers;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BTreeMap = void 0;
 const node_fs_1 = require("node:fs");
 const bson_1 = require("bson");
-// const lettersFirst = /^[\p{L}\p{M}\p{N}]/u;
 function typeOf(item) {
     const typeOfItem = typeof item;
     if (typeOfItem !== "object") {
         return typeOfItem;
     }
+    else if (item === null) {
+        return "null";
+    }
     else {
-        if (item === null)
-            return "null";
         return Object.prototype.toString.call(item).slice(8, -1).toLowerCase();
     }
 }
-function convertKey(key) {
-    const typeOfKey = typeOf(key);
-    switch (typeOfKey) {
-        case "null":
-        case "boolean":
-        case "number":
-        case "date":
-        case "string":
-        case "regexp":
-        case "array":
-        case "object":
-            return key;
-        case "undefined":
-            return null;
-        case "bigint":
-            return String(key) + "n";
-        default:
-            return String(key);
-    }
-}
 class BTreeMap {
-    constructor(order = 3, options = {}) {
+    constructor(options = {}) {
+        _BTreeMap_unique.set(this, true);
         _BTreeMap_order.set(this, 3);
         _BTreeMap_compare.set(this, (a, b) => {
             const typeOfA = typeOf(a);
@@ -60,7 +41,6 @@ class BTreeMap {
                 return (typeOfA < typeOfB) ? -1 : 1;
             }
         });
-        _BTreeMap_unique.set(this, false);
         _BTreeMap_stats.set(this, void 0);
         _BTreeMap_map.set(this, void 0);
         _BTreeMap_root.set(this, void 0);
@@ -68,12 +48,12 @@ class BTreeMap {
             { length: 8, get: () => __classPrivateFieldGet(this, _BTreeMap_order, "f"), set: (v) => __classPrivateFieldSet(this, _BTreeMap_order, v, "f") },
             { length: 1, get: () => (__classPrivateFieldGet(this, _BTreeMap_unique, "f") === false) ? 0 : 1, set: (v) => __classPrivateFieldSet(this, _BTreeMap_unique, (v === 0) ? false : true, "f") },
         ]);
-        if (order && order >= 3)
-            __classPrivateFieldSet(this, _BTreeMap_order, order, "f");
-        if (options.comparator)
-            __classPrivateFieldSet(this, _BTreeMap_compare, options.comparator, "f");
-        if (options.unique)
+        if (options.unique !== undefined)
             __classPrivateFieldSet(this, _BTreeMap_unique, options.unique, "f");
+        if (options.order !== undefined && options.order >= 3)
+            __classPrivateFieldSet(this, _BTreeMap_order, options.order, "f");
+        if (options.comparator !== undefined)
+            __classPrivateFieldSet(this, _BTreeMap_compare, options.comparator, "f");
         __classPrivateFieldSet(this, _BTreeMap_stats, { depth: 0, nodes: 0, leaves: 0, keys: 0, values: 0 }, "f");
         __classPrivateFieldSet(this, _BTreeMap_map, new Map(), "f");
         __classPrivateFieldSet(this, _BTreeMap_root, new Leaf(__classPrivateFieldGet(this, _BTreeMap_order, "f"), __classPrivateFieldGet(this, _BTreeMap_compare, "f"), __classPrivateFieldGet(this, _BTreeMap_stats, "f")), "f");
@@ -99,9 +79,6 @@ class BTreeMap {
         return __classPrivateFieldGet(this, _BTreeMap_map, "f").has(key);
     }
     set(key, value) {
-        key = convertKey(key);
-        if (key === undefined)
-            return this;
         const values = __classPrivateFieldGet(this, _BTreeMap_map, "f").get(key);
         if (values !== undefined) {
             if (__classPrivateFieldGet(this, _BTreeMap_unique, "f")) {
@@ -132,7 +109,12 @@ class BTreeMap {
             return this.values(key, endKey, inclusive);
         }
         else {
-            return (__classPrivateFieldGet(this, _BTreeMap_unique, "f")) ? __classPrivateFieldGet(this, _BTreeMap_map, "f").get(key)[0] : __classPrivateFieldGet(this, _BTreeMap_map, "f").get(key);
+            if (__classPrivateFieldGet(this, _BTreeMap_unique, "f")) {
+                return (__classPrivateFieldGet(this, _BTreeMap_map, "f").get(key)) ? __classPrivateFieldGet(this, _BTreeMap_map, "f").get(key)[0] : undefined;
+            }
+            else {
+                return __classPrivateFieldGet(this, _BTreeMap_map, "f").get(key);
+            }
         }
     }
     delete(key, endKey, inclusive) {
@@ -168,7 +150,7 @@ class BTreeMap {
         __classPrivateFieldSet(this, _BTreeMap_root, new Leaf(__classPrivateFieldGet(this, _BTreeMap_order, "f"), __classPrivateFieldGet(this, _BTreeMap_compare, "f"), __classPrivateFieldGet(this, _BTreeMap_stats, "f")), "f");
     }
     // iterators
-    [(_BTreeMap_order = new WeakMap(), _BTreeMap_compare = new WeakMap(), _BTreeMap_unique = new WeakMap(), _BTreeMap_stats = new WeakMap(), _BTreeMap_map = new WeakMap(), _BTreeMap_root = new WeakMap(), _BTreeMap_headers = new WeakMap(), Symbol.iterator)]() {
+    [(_BTreeMap_unique = new WeakMap(), _BTreeMap_order = new WeakMap(), _BTreeMap_compare = new WeakMap(), _BTreeMap_stats = new WeakMap(), _BTreeMap_map = new WeakMap(), _BTreeMap_root = new WeakMap(), _BTreeMap_headers = new WeakMap(), Symbol.iterator)]() {
         return this.entries();
     }
     *keys(start = this.lowest, end = this.highest, inclusive = true) {
@@ -437,7 +419,7 @@ class Node {
         return middle;
     }
     toString(map, level = 0) {
-        let output = "|  ".repeat(level) + ((level === 0) ? "Root - " : "Node - ") + this.keys;
+        let output = "|  ".repeat(level) + ((level === 0) ? "Root - " : "Node - ") + String(this.keys);
         for (let i = 0, length = this.children.length; i < length; i++) {
             output += "\n" + this.children[i].toString(map, level + 1);
         }
@@ -520,10 +502,10 @@ class Leaf {
     toString(map, level = 0) {
         let output = "|  ".repeat(level) + "Leaf";
         for (const key of this.keys) {
-            output += "\n" + "|  ".repeat(level + 1) + key + ": " + map.get(key);
+            output += "\n" + "|  ".repeat(level + 1) + String(key) + ": " + String(map.get(key));
         }
         if (this.next)
-            output += " --> " + this.next.lowest;
+            output += " --> " + String(this.next.lowest);
         return output;
     }
 }
