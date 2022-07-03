@@ -1,7 +1,7 @@
 {
   "name": "btreemap",
   "version": "0.1.0",
-  "description": "A type-aware, persistent, and indexed data store with a Map-like API and B+ Tree range-based access methods",
+  "description": "An indexed, sorted, type-aware, and persistable data store with a Map-like API and extensions for range-based methods.",
   "files": [
     "dist"
   ],
@@ -12,16 +12,20 @@
   },
   "keywords": [
     "typescript",
-	"binary",
-	"b",
-	"bplus",
+    "binary",
+    "b",
+    "bplus",
     "b+",
     "tree",
     "map",
+	"data",
     "sort",
+	"sorted",
     "key",
     "index",
-	"range"
+	"indexed",
+    "range",
+	"persistent"
   ],
   "author": "James BonTempo",
   "license": "MIT",
@@ -35,6 +39,7 @@
     "eslint": "^8.16.0",
     "mocha": "^10.0.0",
     "nyc": "^15.1.0",
+    "sorted-btree": "^1.8.0",
     "typescript": "^4.7.3"
   },
   "dependencies": {

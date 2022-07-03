@@ -1,6 +1,6 @@
 const { hrtime } = require("node:process");
 const { BTreeMap } = require("../dist/btreemap");
-const { BTree } = require("./btree");
+const { BTree } = require("sorted-btree");
 const BPlusIndex = require("bplus-index");
 
 // modules to test, each using its default comparator
@@ -52,8 +52,8 @@ for (let i = 0; i < counts.length; i++) {
 		//*
 		results = runTest(order, count);
 		for (const module of Object.keys(modules)) {
-			console.log(format([module, "set", "ascending keys", count, (module === "map") ? "N/A" : order, Number(results[module][0]) / 1000000, count/(Number(results[module][0]) / 1000000), i]));
-			console.log(format([module, "get", "ascending keys", count, (module === "map") ? "N/A" : order, Number(results[module][1]) / 1000000, (count*0.2)/(Number(results[module][1]) / 1000000), i]));
+			console.log(format([module, "insert", "ascending keys", count, (module === "map") ? "N/A" : order, Number(results[module][0]) / 1000000, count/(Number(results[module][0]) / 1000000), i]));
+			console.log(format([module, "retrieve", "ascending keys", count, (module === "map") ? "N/A" : order, Number(results[module][1]) / 1000000, (count*0.2)/(Number(results[module][1]) / 1000000), i]));
 			console.log(format([module, "delete", "ascending keys", count, (module === "map") ? "N/A" : order, Number(results[module][2]) / 1000000, (count*0.01)/(Number(results[module][2]) / 1000000), i]));
 			console.log(format([module, "update", "ascending keys", count, (module === "map") ? "N/A" : order, Number(results[module][3]) / 1000000, (count*0.1)/(Number(results[module][3]) / 1000000), i]));
 		}
@@ -63,8 +63,8 @@ for (let i = 0; i < counts.length; i++) {
 		//*
 		results = runTest(order, count, "desc");
 		for (const module of Object.keys(modules)) {
-			console.log(format([module, "set", "descending keys", count, (module === "map") ? "N/A" : order, Number(results[module][0]) / 1000000, count/(Number(results[module][0]) / 1000000), i]));
-			console.log(format([module, "get", "descending keys", count, (module === "map") ? "N/A" : order, Number(results[module][1]) / 1000000, (count*0.2)/(Number(results[module][1]) / 1000000), i]));
+			console.log(format([module, "insert", "descending keys", count, (module === "map") ? "N/A" : order, Number(results[module][0]) / 1000000, count/(Number(results[module][0]) / 1000000), i]));
+			console.log(format([module, "retrieve", "descending keys", count, (module === "map") ? "N/A" : order, Number(results[module][1]) / 1000000, (count*0.2)/(Number(results[module][1]) / 1000000), i]));
 			console.log(format([module, "delete", "descending keys", count, (module === "map") ? "N/A" : order, Number(results[module][2]) / 1000000, (count*0.01)/(Number(results[module][2]) / 1000000), i]));
 			console.log(format([module, "update", "descending keys", count, (module === "map") ? "N/A" : order, Number(results[module][3]) / 1000000, (count*0.1)/(Number(results[module][3]) / 1000000), i]));
 		}
@@ -74,8 +74,8 @@ for (let i = 0; i < counts.length; i++) {
 		//*
 		results = runTest(order, count, "rand");
 		for (const module of Object.keys(modules)) {
-			console.log(format([module, "set", "random keys", count, (module === "map") ? "N/A" : order, Number(results[module][0]) / 1000000, count/(Number(results[module][0]) / 1000000), i]));
-			console.log(format([module, "get", "random keys", count, (module === "map") ? "N/A" : order, Number(results[module][1]) / 1000000, (count*0.2)/(Number(results[module][1]) / 1000000), i]));
+			console.log(format([module, "insert", "random keys", count, (module === "map") ? "N/A" : order, Number(results[module][0]) / 1000000, count/(Number(results[module][0]) / 1000000), i]));
+			console.log(format([module, "retrieve", "random keys", count, (module === "map") ? "N/A" : order, Number(results[module][1]) / 1000000, (count*0.2)/(Number(results[module][1]) / 1000000), i]));
 			console.log(format([module, "delete", "random keys", count, (module === "map") ? "N/A" : order, Number(results[module][2]) / 1000000, (count*0.01)/(Number(results[module][2]) / 1000000), i]));
 			console.log(format([module, "update", "random keys", count, (module === "map") ? "N/A" : order, Number(results[module][3]) / 1000000, (count*0.1)/(Number(results[module][3]) / 1000000), i]));
 		}
