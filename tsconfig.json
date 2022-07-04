@@ -14,6 +14,7 @@
     "strict": true,
     "noImplicitAny": true,
     "alwaysStrict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+	"declaration": true
   }
 }
