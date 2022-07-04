@@ -1,11 +1,11 @@
 {
   "name": "btreemap",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "An indexed, sorted, type-aware, and persistable data store with a Map-like API and extensions for range-based methods.",
   "files": [
     "dist"
   ],
-  "main": "./dist/toe-b.js",
+  "main": "./dist/btreemap.js",
   "scripts": {
     "test": "mocha",
     "coverage": "nyc npm run test",
@@ -45,7 +45,7 @@
     "mocha": "^10.0.0",
     "nyc": "^15.1.0",
     "sorted-btree": "^1.8.0",
-    "typescript": "^4.7.3"
+    "typescript": "^4.7.4"
   },
   "dependencies": {
     "bson": "^4.6.4"

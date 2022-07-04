@@ -426,7 +426,7 @@ Twenty rounds of benchmark tests were conducted to compare `btreemap` with `sort
 * Inserting key/value pairs in batches of 1000, 10000, 100000, and 1000000
 * Retrieving values for a random 20% of the keys
 * Updating values for a random 10% of the keys
-* Deleting a random 1% of the keys.
+* Deleting a random 1% of the keys
 
 Times were captured at nanosecond scale using `process.hrtime.bigint()` and the results were converted into measures of operations per millisecond. The benchmark script, raw data output, and an Excel spreadsheet with a pivot chart, are all available in the "benchmarks" folder.
 
