@@ -25,7 +25,7 @@ btm.set(1, "one");
 btm.get(1); // returns "one"
 btm.set(1, "two"); // overwrites "one" with "two"
 btm.get(1); // returns "two"
-dtm.delete(1) // deletes key 1 and value "two"
+btm.delete(1) // deletes key 1 and value "two"
 ```
 
 ### Non-unique keys
@@ -283,7 +283,7 @@ btm.keys(1, 10);
 // Returns an iterator for keys from the lowest key to 10
 btm.keys(undefined, 10)
 
-// Returns an interator for keys 10 up through the highest key
+// Returns an iterator for keys 10 up through the highest key
 btm.keys(10, undefined);
 
 // Returns an iterator for keys 1 up to but not including 10
