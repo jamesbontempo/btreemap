@@ -74,7 +74,7 @@ Option|Type|Description|Default
 `order`|number|The order of the B+ Tree|`3`
 `comparator`|function|The function used to compare keys|Described above.
 
-If a custom comparator is provided, it must take two values as input and return a value less than zero if the first value is less than the second, greater than zero if the second value is greater than the first, or zero if they are equal.
+If a custom comparator is provided, it must take two values as input and return a value less than zero if the first value should be sorted before the second, greater than zero if the second value should be sorted before the first, or zero to keep the existing order.
 
 #### Examples
 
