@@ -1,6 +1,6 @@
 {
   "name": "btreemap",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An indexed, sorted, type-aware, and persistable data store with a Map-like API and extensions for range-based methods.",
   "files": [
     "dist"
@@ -9,7 +9,7 @@
   "scripts": {
     "test": "mocha",
     "coverage": "nyc npm run test",
-	"report-coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov"
+    "report-coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov"
   },
   "keywords": [
     "typescript",
@@ -19,17 +19,21 @@
     "b+",
     "tree",
     "map",
-	"data",
+    "data",
     "sort",
-	"sorted",
+    "sorted",
     "key",
     "index",
-	"indexed",
+    "indexed",
     "range",
-	"persistent"
+    "persistent"
   ],
   "author": "James BonTempo",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jamesbontempo/btreemap.git"
+  },
   "devDependencies": {
     "@tsconfig/node14": "^1.0.1",
     "@types/node": "^17.0.35",
