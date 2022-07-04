@@ -53,7 +53,7 @@ By default, `BTreeMap` uses a type-aware comparator function to compare and dete
  - [Data manipulation methods](#data-manipulation-methods)
  - [Iterators](#iterators)
  - [Functional methods](#functional-methods)
- - [Input/Output methods](#input-output-methods)
+ - [Input/Output methods](#inputoutput-methods)
  - [Benchmarks](#benchmarks)
 
 ## Constructor
