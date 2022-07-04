@@ -1,6 +1,6 @@
 {
   "name": "btreemap",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "An indexed, sorted, type-aware, and persistable data store with a Map-like API and extensions for range-based methods.",
   "files": [
     "dist"

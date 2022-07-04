@@ -101,7 +101,7 @@ Property|Description
 --------|-----------
 `depth`|The depth of the tree
 `nodes`|The number of nodes in the tree
-`leaves`|The number of leaves in thetree
+`leaves`|The number of leaves in the tree
 `keys`|The number of keys in the tree
 `values`|The number of values in the tree
 
@@ -422,7 +422,7 @@ A string representing the `BTreeMap` object.
 
 ## Benchmarks
 
-Twenty rounds of benchmark tests were conducted to compare `btreemap` with `sorted-btree` and `bplus-index`. Each test involved the following for ascending and descending integer keys, and randomly generated mix of integer and character keys:
+Twenty rounds of benchmark tests were conducted to compare `btreemap` with `sorted-btree` and `bplus-index`. Each test involved the following for ascending and descending integer keys, and a randomly generated mix of integer and character keys:
 * Inserting key/value pairs in batches of 1000, 10000, 100000, and 1000000
 * Retrieving values for a random 20% of the keys
 * Updating values for a random 10% of the keys
