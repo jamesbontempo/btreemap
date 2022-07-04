@@ -2,7 +2,7 @@
 
 ![Version](https://img.shields.io/github/package-json/v/jamesbontempo/btreemap?color=blue) ![Coverage](https://img.shields.io/codecov/c/github/jamesbontempo/btreemap/&lt;main>.svg?style=flat) ![Dependencies](https://img.shields.io/librariesio/release/npm/btreemap) ![License](https://img.shields.io/github/license/jamesbontempo/btreemap?color=red)
 
-A `BTreeMap` is an indexed, sorted, type-aware, and persistable data store with a Map-like API and extensions for range-based methods. At it's core is a `Map` object, used to store key/value pairs, and a [B+ Tree](https://en.wikipedia.org/wiki/B%2B_tree) for managing keys. This "best of both worlds" approach leverages the strengths of each: the efficient data access of a `Map`, and the sorting and range benefits of a B+ Tree. In benchmark tests, `BTreeMap` significantly outperforms the B+ Tree libraries [sorted-btree](https://www.npmjs.com/package/sorted-btree) and [bplus-index](https://www.npmjs.com/package/bplus-index) when retrieving and updating existing values, and performs comparably on insertion and deletion tasks.
+A `BTreeMap` is an indexed, sorted, type-aware, and persistable data store with a Map-like API and extensions for range-based methods. At it's core is a `Map` object, used to store key/value pairs, and a [B+ Tree](https://en.wikipedia.org/wiki/B%2B_tree) for managing keys. This "best of both worlds" approach leverages the strengths of each: the efficient data access of a `Map`, and the sorting and range benefits of a B+ Tree. In benchmark tests, `BTreeMap` significantly outperforms the B+ Tree libraries [sorted-btree](https://www.npmjs.com/package/sorted-btree) and [bplus-index](https://www.npmjs.com/package/bplus-index) when retrieving and updating existing values, and performs comparably on insertion and deletion tasks (see [Benchmarks](#benchmarks) for details).
 
 There is one important way in which a `BTreeMap` is different from a `Map`. The design inspiration comes from database indexes that can enforce unique keys constraints or allow  keys to have multiple related values. A `BTreeMap` can be similarly configured either way. When keys are unique, a `BTreeMap` effectively functions the same as a `Map`, with the added benefit of key sorting and range-based access. When keys are non-unique, each key can have an array of associated values, and this has several implications:
 
@@ -15,37 +15,48 @@ There is one important way in which a `BTreeMap` is different from a `Map`. The 
 By default, a `BTreeMap` is configured for unique keys.
 
 ## Examples
-```js
-// creates a new BTreeMap with unique keys
-const btm = new BTreeMap();
-// inserts the key 1 with the associated value 1 into the BTreeMap
-btm.set(1, 1);
-// returns the value 1
-btm.get(1);
-// overwrites the associated value 1 for key 1 with the value 2
-btm.set(1, 2);
-// deletes the key 1 and the associated value 2
-dtm.delete(1)
 
-// creates a new BTreeMap with non-unique keys
+### Unique keys
+```js
+const { BTreeMap } = require("btreemap");
+
+const btm = new BTreeMap();
+btm.set(1, "one");
+btm.get(1); // returns "one"
+btm.set(1, "two"); // overwrites "one" with "two"
+btm.get(1); // returns "two"
+dtm.delete(1) // deletes key 1 and value "two"
+```
+
+### Non-unique keys
+
+```js
+const { BTreeMap } = require("btreemap");
+
 const btm = new BTreeMap({unique: false});
-// inserts the key 1 with the associated value 1 into the BTreeMap
-btm.set(1, 1);
-// adds the associated value 2 for the key 1
-btm.set(1, 2);
-// returns [1, 2]
-btm.get(1);
-// deletes the key 1 and the associated values 1 and 2
-btm.delete(1);
+btm.set(1, "one");
+btm.get(1); // returns ["one"]
+btm.set(1, "two"); // adds "two" for key 1
+btm.get(1); // returns ["one", "two"]
+btm.delete(1); // deletes key 1 and values "one" and "two"
 ```
 
 There are two other important factors to be aware of: the use of [BSON](https://www.npmjs.com/package/bson) to serialize and deserialize data with persistent storage; and the default comparator used to determine the sort order of keys.
 
 While a `Map` key or value can be any primitive or object, BSON cannot effectively serialize all of them, so if you attempt to save a `BTreeMap` that contains certain types of keys or values it may result in an error. In particular, the following primitives and object types are "safe": `null`, `boolean`, `number`, `Date`, `string`, `RegExp`, `Array`, and `Object` (that is, `[object Object]`). The BSON library will convert any `undefined` keys or values to `null`, will fail on `bigint`, and may not serialize other types of objects as you'd expect. When using `BTreeMap` completely in-memory, none of theses restrictions apply.
 
-By default, `BTreeMap` uses a type-aware comparator function to compare and determine the sort order of keys. If two keys being compared are of the same type (`null` keys have their type converted from `object` to `null`), they are compared using the "less than" (`<`) operator and the [Abstract Relational Comparison](https://tc39.es/ecma262/#sec-abstract-relational-comparison) algorithm. If the keys are of different types, they are compared lexicographically using their type name. This results in a somewhat arbitrary ordering of differing types, but any ordering of types is bound to be somewhat arbitrary. If desired, a custom comparator function can be supplied when creating a `BTreeMap` instance. It must take two values as input and return a value less than zero if the first value is less than the second, greater than zero if the second value is greater than the first, or zero if they are equal.
+By default, `BTreeMap` uses a type-aware comparator function to compare and determine the sort order of keys. If two keys being compared are of the same type (`null` keys have their type converted from `object` to `null`), they are compared using the "less than" (`<`) operator and the [Abstract Relational Comparison](https://tc39.es/ecma262/#sec-abstract-relational-comparison) algorithm. If the keys are of different types, they are compared lexicographically using their type name. This results in a somewhat arbitrary ordering of differing types, but any ordering of types is bound to be somewhat arbitrary. If desired, a custom comparator function can be supplied when creating a `BTreeMap` instance.
 
-## BTreeMap() constructor
+## Table of contents
+ - [Constructor](#constructor)
+ - [Properties](#properties)
+ - [Data manipulation methods](#data-manipulation-methods)
+ - [Iterators](#iterators)
+ - [Functional methods](#functional-methods)
+ - [Input/Output methods](#input-output-methods)
+ - [Benchmarks](#benchmarks)
+
+## Constructor
 
 #### Syntax
 
@@ -62,6 +73,8 @@ Option|Type|Description|Default
 `unique`|boolean|Whether keys are unique|`true`
 `order`|number|The order of the B+ Tree|`3`
 `comparator`|function|The function used to compare keys|Described above.
+
+If a custom comparator is provided, it must take two values as input and return a value less than zero if the first value is less than the second, greater than zero if the second value is greater than the first, or zero if they are equal.
 
 #### Examples
 
@@ -270,19 +283,22 @@ btm.keys(1, 10);
 // Returns an iterator for keys from the lowest key to 10
 btm.keys(undefined, 10)
 
-// Returns an interator for keys 10 up to but not including the highest key
-btm.keys(10, undefined, false);
+// Returns an interator for keys 10 up through the highest key
+btm.keys(10, undefined);
+
+// Returns an iterator for keys 1 up to but not including 10
+btm.keys(1, 10, false)
 ```
 
 ### BTreeMap.values()
 
-Returns a new iterator object that contains the values for elements in the `BTreeMap` object sorted by key order.
+Returns a new iterator object that contains the values in the `BTreeMap` object sorted by key order.
 
 #### Syntax
 
 	values([start, end, inclusive])
 
-If `start` or `end` are provided, returns values for keys within the range from `start` to `end`.
+If `start` or `end` are provided, returns values for keys within the range from `start` to `end`. Note that if configured for non-unique keys, each value yielded will be an array of values.
 
 #### Parameters
 
@@ -306,7 +322,7 @@ A new `BTreeMap` iterator object.
 
 ### BTreeMap.entries()
 
-Returns a new iterator object that contains the [key, value] pairs for elements in the `BTreeMap` object sorted by key order.
+Returns a new iterator object that contains the [key, value] pairs in the `BTreeMap` object sorted by key order. Note that if configured for non-unique keys, a [key, value] pair will be yielded for each value in a key's array of associated values; that is, more than one [key, value] pair may be yielded for a given key.
 
 #### Syntax
 
@@ -338,7 +354,7 @@ A new `BTreeMap` iterator object.
 
 ### BTreeMap.forEach()
 
-Executes a provided function once per each key/value pair in the `BTreeMap` object in sorted order.
+Executes a provided function once per each key/value pair in the `BTreeMap` object in sorted order. If configured for non-unique keys, applies the supplied function to each individual element of a key's array of associated values.
 
 #### Syntax
 
@@ -429,7 +445,5 @@ Twenty rounds of benchmark tests were conducted to compare `btreemap` with `sort
 * Deleting a random 1% of the keys
 
 Times were captured at nanosecond scale using `process.hrtime.bigint()` and the results were converted into measures of operations per millisecond. The benchmark script, raw data output, and an Excel spreadsheet with a pivot chart, are all available in the "benchmarks" folder.
-
-The following chart shows the aggregate results:
 
 ![Benchmark results](./benchmarks/benchmarks.png "Benchmark results")
