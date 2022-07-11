@@ -243,6 +243,10 @@ Removes all elements from a `BTreeMap` object.
 
 ## Iterators
 
+### BTreeMap[@@iterator]()
+
+Returns the same iterator object as the [entries](#btreemapentries) method.
+
 ### BTreeMap.keys()
 
 Returns a new iterator object that contains the keys in the `BTreeMap` object in sorted order.
@@ -298,7 +302,7 @@ Returns a new iterator object that contains the values in the `BTreeMap` object 
 
 	values([start, end, inclusive])
 
-If `start` or `end` are provided, returns values for keys within the range from `start` to `end`. Note that if configured for non-unique keys, each value yielded will be an array of values.
+If `start` or `end` are provided, returns values for keys within the range from `start` to `end`. Note that if configured for non-unique keys, each value yielded will be one of an array of values.
 
 #### Parameters
 
