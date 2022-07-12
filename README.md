@@ -243,9 +243,17 @@ Removes all elements from a `BTreeMap` object.
 
 ## Iterators
 
-### BTreeMap[@@iterator]()
+### BTreeMap\[@@iterator\]()
 
-Returns the same iterator object as the [entries](#btreemapentries) method.
+Returns the same iterator object as the [entries](#btreemapentries) method. If configured for non-unique keys, a [key, value] pair will be yielded for each value in a key's array of associated values.
+
+#### Examples
+
+```js
+for (const entry of btm) {
+	console.log(entry); // [key, value]
+}
+```
 
 ### BTreeMap.keys()
 
@@ -326,7 +334,7 @@ A new `BTreeMap` iterator object.
 
 ### BTreeMap.entries()
 
-Returns a new iterator object that contains the [key, value] pairs in the `BTreeMap` object sorted by key order. Note that if configured for non-unique keys, a [key, value] pair will be yielded for each value in a key's array of associated values; that is, more than one [key, value] pair may be yielded for a given key.
+Returns a new iterator object that contains the [key, value] pairs in the `BTreeMap` object sorted by key order. If configured for non-unique keys, a [key, value] pair will be yielded for each value in a key's array of associated values; that is, more than one [key, value] pair may be yielded for a given key.
 
 #### Syntax
 

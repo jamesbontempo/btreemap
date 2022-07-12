@@ -213,6 +213,7 @@ describe("oobps tests", () => {
 		const test = createTree({order: 3, count: 10, unique: true});
 		test.tree.set(10, 11);
 		expect(test.tree.get(10)).to.deep.equal(11);
+		expect(test.tree.get(11)).to.equal(undefined);
 	});
 	
 	it ("Checks to see if the tree has a key", () => {
@@ -306,6 +307,11 @@ describe("oobps tests", () => {
 		expect(test.tree.size).to.equal(0);
 	});
 	
+	it("Tries to delete a range of keys that don't exist", () => {
+		const test = createTree({order: 3, count: 5, mode: "asc"});
+		expect(test.tree.delete(6, 10)).to.equal(false);
+	});
+	
 	it("Borrows from the left end of a key array", () => {
 		const test = createTree({order: 3, count: 9, mode: "asc"});
 		test.tree.delete(5, 6);
@@ -349,13 +355,14 @@ describe("oobps tests", () => {
 		}
 	});
 	
-	it("Accesses the keys, values, and entries iterators", () => {
+	it("Accesses the default, keys, values, and entries iterators", () => {
 		const test = createTree({order: 8, count: 200, mode: "rand"});
 		
 		test.keys = test.keys.sort((a, b) => compare(a, b)).filter((e, i, a) => e !== a[i-1]);
 		test.values = test.values.sort((a, b) => compare(a.id, b.id));
 		test.entries = test.entries.sort((a, b) => compare(a[0], b[0]));
 		
+		expect(Array.from(test.tree)).to.deep.equal(Array.from(test.tree.entries()));
 		expect(Array.from(test.tree.keys())).to.deep.equal(test.keys);
 		expect(Array.from(test.tree.values())).to.deep.equal(test.values);
 		expect(Array.from(test.tree.entries())).to.deep.equal(test.entries);		
@@ -368,7 +375,12 @@ describe("oobps tests", () => {
 			expect(test.tree.get(i)[0].value).to.equal(i+1);
 		}
 		
-	})
+	});
+	
+	it("Tries to run forEach on an empty object", () => {
+		const tree = new BTreeMap();
+		expect(tree.forEach((v, k) => tree.get(k)[0].value++, 3, 8)).to.equal(undefined);
+	});
 	
 	it("Provides a custom comparator", () => {
 		let cmp = (a, b) => {
@@ -413,11 +425,13 @@ describe("oobps tests", () => {
 	
 	it("Prints out a tree", () => {
 		const tree = new BTreeMap({order: 3, unique: false});
+		
 		tree.set(1, 1);
 		tree.set(2, 2);
 		tree.set(3, 3);
 		tree.set(4, 4);
 		tree.set(4, 5);
+
 		expect(tree.toString()).to.equal("Root - 3\n|  Leaf\n|  |  1: 1\n|  |  2: 2 --> 3\n|  Leaf\n|  |  3: 3\n|  |  4: 4,5")
 	});
 });
