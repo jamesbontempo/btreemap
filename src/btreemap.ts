@@ -124,10 +124,11 @@ export class BTreeMap implements IBTreeMap {
 		if (endKey) {
 			return this.values(key, endKey, inclusive);
 		} else {
+			const values = this.#map.get(key);
 			if (this.#unique) {
-				return (this.#map.get(key)) ? this.#map.get(key)[0] : undefined;
+				return (values) ? values[0] : undefined;
 			} else {
-				return this.#map.get(key);
+				return values;
 			}
 		}
 	}
