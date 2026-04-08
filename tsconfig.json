@@ -1,20 +1,12 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "Node 14",
-  "extends": "@tsconfig/node14/tsconfig.json",
-  "include": ["src/*"],
+  "extends": "@tsconfig/node23/tsconfig.json",
+  "include": ["src/**/*"],
   "compilerOptions": {
-    "lib": ["es2020"],
-    "target": "es2020",
-    "module": "commonjs",
-    "sourceMap": true,
+    "rootDir": "./src",
     "outDir": "./dist",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "noImplicitAny": true,
-    "alwaysStrict": true,
-    "skipLibCheck": true,
-	"declaration": true
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "types": ["node"]
   }
 }
