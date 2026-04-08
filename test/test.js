@@ -71,11 +71,17 @@ describe("BTreeMap", () => {
 
     });
 
-    it("sets enough key/value pairs to generate two splits", () => {
+    it("sets enough key/value pairs to generate two leaf splits", () => {
         const test = createTest({ count: 9 });
         assert.deepStrictEqual(test.tree.lowest, 1);
         assert.deepStrictEqual(test.tree.highest, 9);
         assertStats(test.tree, { nodes: 1, keys: 9, leaves: 3, values: 9, depth: 1 });
+    });
+
+    it("sets enough key/value pairs, then deletes one, to generate a node merge", () => {
+        const test = createTest({ count: 10 });
+        test.tree.delete(10);
+        assert.equal(test.tree.stats.nodes, 1);
     });
 
     it("clears a tree", () => {
