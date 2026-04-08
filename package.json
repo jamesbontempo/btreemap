@@ -7,7 +7,10 @@
   ],
   "main": "./dist/btreemap.js",
   "scripts": {
-    "test": "tsc && node --test ./test/test.js"
+    "test": "tsc && node --test --experimental-test-coverage ./test/test.js",
+    "coverage": "tsc && node --test --experimental-test-coverage --test-reporter=lcov ./test/test.js > coverage.lcov",
+    "report-coverage": "codecov",
+    "ci": "npm run coverage && npm run report-coverage"
   },
   "keywords": [
     "btree",
@@ -30,6 +33,7 @@
   "devDependencies": {
     "@tsconfig/node23": "^23.0.4",
     "@types/node": "^25.5.2",
+    "codecov": "^3.8.2",
     "typescript": "^5.9.3"
   },
   "dependencies": {
