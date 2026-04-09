@@ -1,6 +1,6 @@
 {
   "name": "btreemap",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A B-tree based map with support for ordered iteration, range queries, and non-unique keys",
   "files": [
     "dist"
