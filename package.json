@@ -35,8 +35,5 @@
     "@types/node": "^25.5.2",
     "codecov": "^3.8.2",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "bson": "^4.7.0"
   }
 }
