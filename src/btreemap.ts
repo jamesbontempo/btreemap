@@ -1,6 +1,6 @@
 type Comparator = (a: any, b: any) => number;
 
-type BTreeMapOptions = {
+export type BTreeMapOptions = {
 	unique?: boolean;
 	order?: number;
 	compare?: Comparator;
