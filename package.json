@@ -10,7 +10,8 @@
     "test": "tsc && node --test --experimental-test-coverage ./test/test.js",
     "coverage": "tsc && node --test --experimental-test-coverage --test-reporter=lcov ./test/test.js > coverage.lcov",
     "report-coverage": "codecov",
-    "ci": "npm run coverage && npm run report-coverage"
+    "ci": "npm run coverage && npm run report-coverage",
+    "publish": "tsc && npm publish"
   },
   "keywords": [
     "btree",
