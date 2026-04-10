@@ -12,10 +12,10 @@ type TreeConfig = {
 	stats: Record<string, number>;
 }
 
-export class BTreeMap {
+export class BTreeMap<V> {
 	private _config: TreeConfig;
 	private _unique: boolean;
-	private _map: Map<any, any[]>;
+	private _map: Map<any, V[]>;
 	private _root: Node | Leaf;
 	private _keyType: string | undefined;
 	
@@ -58,11 +58,11 @@ export class BTreeMap {
 		return this._map.has(key);
 	}
 
-	get(key: any): any[] | undefined {
+	get(key: any): V[] | undefined {
 		return this._map.get(key);
 	}
 	
-	set(key: any, value: any): BTreeMap {
+	set(key: any, value: V): BTreeMap<V> {
 		const keyType = typeof key;
 		if (!this._keyType) {
 			this._keyType = keyType;
@@ -109,7 +109,7 @@ export class BTreeMap {
 		}
 	}
 
-	deleteValue(key: any, value: any): boolean {
+	deleteValue(key: any, value: V): boolean {
 		const values = this._map.get(key);
 		if (values === undefined) return false;
 		const index = values.indexOf(value);
@@ -148,7 +148,7 @@ export class BTreeMap {
 		} while (leaf !== null)
 	}
 	
-	*values(start: any = this.lowest, end: any = this.highest, inclusive: boolean = true): IterableIterator<Array<any>> {
+	*values(start: any = this.lowest, end: any = this.highest, inclusive: boolean = true): IterableIterator<V> {
 		if (this._map.size === 0) return;
 		const iterator = this.keys(start, end, inclusive);
 		let next = iterator.next();
@@ -162,7 +162,7 @@ export class BTreeMap {
 		}
 	}
 	
-	*entries(start: any = this.lowest, end: any = this.highest, inclusive: boolean = true): IterableIterator<Array<any>> {
+	*entries(start: any = this.lowest, end: any = this.highest, inclusive: boolean = true): IterableIterator<[any, V]> {
 		if (this._map.size === 0) return;
 		const iterator = this.keys(start, end, inclusive);
 		let next = iterator.next();
@@ -178,7 +178,7 @@ export class BTreeMap {
 	
 	// functional methods
 	
-	forEach(func: (value: any, key: any, map: BTreeMap) => void, start: any = this.lowest, end: any = this.highest, inclusive: boolean = true): void {
+	forEach(func: (value: V, key: any, map: BTreeMap<V>) => void, start: any = this.lowest, end: any = this.highest, inclusive: boolean = true): void {
 		if (this._map.size === 0) return;
 		const iterator = this.entries(start, end, inclusive);
 		let next = iterator.next();
