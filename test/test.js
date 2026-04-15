@@ -58,12 +58,14 @@ describe("BTreeMap", () => {
     it("creates a new tree of order 4", () => {
         const btree = new BTreeMap({ order: 4 });
         assert.equal(btree.order, 4);
+        assert.equal(btree.unique, true);
         assertStats(btree, { nodes: 0, keys: 0, leaves: 1, values: 0, depth: 0 });
     });
 
     it("sets a single key/value pair", () => {
         const btree = new BTreeMap();
         btree.set(1, 1);
+        assert.equal(btree.keyType, "number");
         assert.deepStrictEqual(btree.get(1), [1]);
         assert.equal(btree.lowest, 1);
         assert.equal(btree.highest, 1);
@@ -271,13 +273,27 @@ describe("BTreeMap", () => {
 		const test = createTest({ order: 8, count: 200 });
         const lowest = test.tree.lowest;
         const highest = test.tree.highest;
-		test.keys = test.keys.filter((e, i, a) => e !== a[i-1]).slice(0, -1);
-		test.values = test.values.sort((a, b) => Number(a) < Number(b) ? -1 : Number(a) > Number(b) ? 1 : 0).slice(0, -1);
-		test.entries = test.entries.sort((a, b) => compare(a[0], b[0])).slice(0, -1);
-		
-		assert.deepStrictEqual(Array.from(test.tree.keys(lowest, highest, false)), test.keys);
-		assert.deepStrictEqual(Array.from(test.tree.values(lowest, highest, false)), test.values);
-		assert.deepStrictEqual(Array.from(test.tree.entries(lowest, highest, false)), test.entries);
+
+		const keysA = test.keys.filter((e, i, a) => e !== a[i-1]).slice(0, -1);
+		const valuesA = test.values.sort((a, b) => Number(a) < Number(b) ? -1 : Number(a) > Number(b) ? 1 : 0).slice(0, -1);
+		const entriesA = test.entries.sort((a, b) => compare(a[0], b[0])).slice(0, -1);
+		assert.deepStrictEqual(Array.from(test.tree.keys(lowest, highest, true, false)), keysA);
+		assert.deepStrictEqual(Array.from(test.tree.values(lowest, highest, true, false)), valuesA);
+		assert.deepStrictEqual(Array.from(test.tree.entries(lowest, highest, true, false)), entriesA);
+
+		const keysB = test.keys.filter((e, i, a) => e !== a[i-1]).slice(1);
+		const valuesB = test.values.sort((a, b) => Number(a) < Number(b) ? -1 : Number(a) > Number(b) ? 1 : 0).slice(1);
+		const entriesB = test.entries.sort((a, b) => compare(a[0], b[0])).slice(1);
+		assert.deepStrictEqual(Array.from(test.tree.keys(lowest, highest, false, true)), keysB);
+		assert.deepStrictEqual(Array.from(test.tree.values(lowest, highest, false, true)), valuesB);
+		assert.deepStrictEqual(Array.from(test.tree.entries(lowest, highest, false, true)), entriesB);
+
+		const keysC = test.keys.filter((e, i, a) => e !== a[i-1]).slice(1, -1);
+		const valuesC = test.values.sort((a, b) => Number(a) < Number(b) ? -1 : Number(a) > Number(b) ? 1 : 0).slice(1, -1);
+		const entriesC = test.entries.sort((a, b) => compare(a[0], b[0])).slice(1, -1);
+		assert.deepStrictEqual(Array.from(test.tree.keys(lowest, highest, false, false)), keysC);
+		assert.deepStrictEqual(Array.from(test.tree.values(lowest, highest, false, false)), valuesC);
+		assert.deepStrictEqual(Array.from(test.tree.entries(lowest, highest, false, false)), entriesC);
     });
 
 	it("uses the forEach method to modify values", () => {
@@ -289,19 +305,88 @@ describe("BTreeMap", () => {
 	});
 
 	it("provides a custom comparator", () => {
-		let cmp = (a, b) =>(a > b) ? -1 : ((a < b) ? 1 : 0);
+		const cmp = (a, b) =>(a > b) ? -1 : ((a < b) ? 1 : 0);
 		const test = createTest({ count: 25, mode: "desc", compare: cmp });
 		test.keys = test.keys.sort((a, b) => cmp(a, b)).filter((e, i, a) => e !== a[i-1]);
 		assert.deepStrictEqual(Array.from(test.tree.keys()), test.keys);
+    });
+
+    it("provides an array-based custom comparator", () => {
+        const btree = new BTreeMap({
+            unique: false,
+            compare: (a, b) => {
+                a = JSON.stringify([...a].sort());
+                b = JSON.stringify([...b].sort());
+                return a < b ? -1 : a > b ? 1 : 0;
+            }
+        });
+        btree.set([1, 2], "first");
+        btree.set([3, 1], "second");
+        btree.set([1, 4], "third");
+        assert.deepStrictEqual(Array.from(btree.keys()), [[1, 2], [3, 1], [1, 4]]);
+    });
+
+	it("provides a custom serializer", () => {
+        const btree = new BTreeMap({
+            unique: false,
+            serialize: (a) => JSON.stringify([...a].sort())
+        });
+        btree.set([1, 2], "first");
+        btree.set([2, 1], "another first");
+        assert.equal(btree.has([2, 1]), true);
+        assert.equal(btree.size, 1);
+        assert.deepStrictEqual(btree.get([1, 2]), ["first", "another first"]);
 	});
 
+    it("deletes a value using a custom equals function", () => {
+        const btree = new BTreeMap({ unique: false });
+        btree.set(1, "Hello");
+        btree.set(1, "World");
+        btree.set(1, "Foo");
+        btree.deleteValue(1, "hello", (a, b) => a.toLowerCase() === b.toLowerCase());
+        assert.deepStrictEqual(btree.get(1), ["World", "Foo"]);
+    });
+
+    it("sets array values and deletes one", () => {
+        const btree = new BTreeMap({ unique: false });
+        btree.set(1, [1, 2]);
+        btree.set(1, [2, 3]);
+        btree.set(1, [3, 4]);
+        btree.deleteValue(1, [2, 3]);
+        assertStats(btree, { keys: 1, values: 2 });
+    });
+
+    it("sets object values and deletes one", () => {
+        const btree = new BTreeMap({ unique: false });
+        btree.set(1, { id: 1, letter: "a" });
+        btree.set(1, { id: 2, letter: "b" });
+        btree.set(1, { id: 1, letter: "c" });
+        btree.set(1, { id: 3 });
+        btree.deleteValue(1, { id: 1, letter: "a" });
+        assertStats(btree, { keys: 1, values: 3 });
+    });
+
+    it("sets a bigint key", () => {
+        const btree = new BTreeMap({ unique: false });
+        btree.set(1n, "bigint");
+        btree.set(1n, "another bigint");
+        btree.set(2n, "one last bigint");
+        assert.deepStrictEqual(Array.from(btree.keys()), [1n, 2n]);
+        assert.deepStrictEqual(btree.get(1n), ["bigint", "another bigint"]);
+    });
+
+    it("bla", () => {
+        const test = createTest({ unique: false, count: 30, mode: "rand" });
+        console.log(test.tree.toString());
+    })
+
     it("prints out a tree", () => {
-        const tree = new BTreeMap({ unique: false });
-        tree.set(1, 1);
-        tree.set(2, 2);
-        tree.set(3, 3);
-        tree.set(4, 4);
-        tree.set(4, 5);
-        assert.equal(tree.toString(), "Root - 3\n|  Leaf\n|  |  1: 1\n|  |  2: 2 --> 3\n|  Leaf\n|  |  3: 3\n|  |  4: 4,5")
+        const btree = new BTreeMap({ unique: false });
+        btree.set(1, 1);
+        btree.set(2, 2);
+        btree.set(3, 3);
+        btree.set(4, 4);
+        btree.set(4, 5);
+        assert.equal(btree.toString(), "Root - [3]\n|  Leaf\n|  |  1: [1]\n|  |  2: [2] --> 3\n|  Leaf\n|  |  3: [3]\n|  |  4: [4,5]")
     });
 });
