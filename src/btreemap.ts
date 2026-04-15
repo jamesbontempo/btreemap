@@ -1,32 +1,40 @@
+type Serializer = (a: any) => string;
 type Comparator = (a: any, b: any) => number;
 
 export type BTreeMapOptions = {
 	unique?: boolean;
 	order?: number;
+	serialize?: Serializer;
 	compare?: Comparator;
 }
 
 type TreeConfig = {
 	order: number;
+	serialize: Serializer;
 	compare: Comparator;
 	stats: Record<string, number>;
 }
 
 export class BTreeMap<V> {
-	private _config: TreeConfig;
-	private _unique: boolean;
-	private _map: Map<any, V[]>;
-	private _root: Node | Leaf;
+	private readonly _config: TreeConfig;
+	private readonly _unique: boolean;
+	private readonly _map: Map<any, V[]>;
+	private _root: Node<V> | Leaf<V>;
 	private _keyType: string | undefined;
 	
 	constructor(options: BTreeMapOptions = {}) {
-		this._unique = options.unique ?? true;
-		this._map = new Map();
 		this._config = {
 			order: Math.max(options.order ?? 3, 3),
+			serialize: options.serialize ?? ((a: any) =>
+				JSON.stringify(a, ((key, value) => 
+					typeof value === "bigint" ? value.toString() : value
+				))
+			),
 			compare: options.compare ?? ((a: any, b: any): number => a < b ? -1 : a > b ? 1 : 0),
 			stats: { depth: 0, nodes: 0, leaves: 0, keys: 0, values: 0 }
 		}
+		this._unique = options.unique ?? true;
+		this._map = new Map();
 		this._root = new Leaf(this._config);
 	}
 	
@@ -43,6 +51,14 @@ export class BTreeMap<V> {
 	get order(): number {
 		return this._config.order;
 	}
+
+	get unique(): boolean {
+		return this._unique;
+	}
+
+	get keyType(): string | undefined {
+		return this._keyType;
+	}
 	
 	get size(): number {
 		return this._map.size;
@@ -55,11 +71,11 @@ export class BTreeMap<V> {
 	// data manipulation methods
 	
 	has(key: any): boolean {
-		return this._map.has(key);
+		return this._map.has(this._config.serialize(key));
 	}
 
 	get(key: any): V[] | undefined {
-		return this._map.get(key);
+		return this._map.get(this._config.serialize(key));
 	}
 	
 	set(key: any, value: V): BTreeMap<V> {
@@ -69,7 +85,7 @@ export class BTreeMap<V> {
 		} else if (keyType !== this._keyType) {
 			throw new TypeError(`Key type mismatch: expected ${this._keyType}, got ${keyType}`);
 		}
-		const values = this._map.get(key);
+		const values = this._map.get(this._config.serialize(key));
 		if (values !== undefined) {
 			if (this._unique) {
 				values[0] = value;
@@ -78,7 +94,7 @@ export class BTreeMap<V> {
 				this._config.stats.values++;
 			}
 		} else {			
-			this._map.set(key, [value]);
+			this._map.set(this._config.serialize(key), [value]);
 			this._root.set(key);
 			if (this._root.keys.length > this._root.max) {
 				const newRoot = new Node(this._config);
@@ -94,9 +110,9 @@ export class BTreeMap<V> {
 	}
 	
 	delete(key: any): boolean {
-		if (this._map.has(key)) {
-			const count = this._map.get(key)!.length;
-			this._map.delete(key);
+		if (this._map.has(this._config.serialize(key))) {
+			const count = this._map.get(this._config.serialize(key))!.length;
+			this._map.delete(this._config.serialize(key));
 			this._root.delete(key);
 			if (this._root.keys.length === 0) {
 				this._root = this._root.shrink();
@@ -109,10 +125,16 @@ export class BTreeMap<V> {
 		}
 	}
 
-	deleteValue(key: any, value: V): boolean {
-		const values = this._map.get(key);
+	deleteValue(key: any, value: V, equals: (a: V, b: V) => boolean = shallowEquals): boolean {
+		const values = this._map.get(this._config.serialize(key));
 		if (values === undefined) return false;
-		const index = values.indexOf(value);
+		let index = -1;
+		for (let i = 0; i < values.length; i++) {
+			if (equals(values[i], value)) {
+				index = i;
+				break;
+			}
+		}
 		if (index === -1) return false;
 		values.splice(index, 1);
 		this._config.stats.values--;
@@ -121,7 +143,7 @@ export class BTreeMap<V> {
 	}
 	
 	clear(): void {
-		this._map = new Map();
+		this._map.clear();
 		this._config.stats = {depth: 0, nodes: 0, leaves: 0, keys: 0, values: 0};
 		this._root = new Leaf(this._config);
 	}
@@ -132,29 +154,33 @@ export class BTreeMap<V> {
 		return this.entries();
 	}
 	
-	*keys(start: any = this.lowest, end: any = this.highest, inclusive: boolean = true): IterableIterator<any> {
+	*keys(start: any = this.lowest, end: any = this.highest, includeStart: boolean = true, includeEnd: boolean = true): IterableIterator<any> {
 		if (this._map.size === 0) return;
-		let leaf: Leaf | null = this._root.findLeaf(start);
+		let leaf: Leaf<V> | null = this._root.findLeaf(start);
 		let i = slotOf(start, leaf.keys, this._config.compare);
 		while (i > 0 && this._config.compare(leaf?.keys[i - 1], start) >= 0) i--;
 		do {
 			for (const length = leaf.keys.length; i < length; i++) {
 				const key = leaf.keys[i];
-				if (this._config.compare(key, end) > 0) return;
-				if (inclusive || this._config.compare(key, end) < 0) yield key;
+				const compareEnd = this._config.compare(key, end);
+				if (compareEnd > 0) return;
+				if (!includeEnd && compareEnd === 0) return;
+				const compareStart = this._config.compare(key, start);
+				if (!includeStart && compareStart === 0) continue;
+				yield key;
 			}
 			leaf = leaf.next;
 			i = 0;
 		} while (leaf !== null)
 	}
 	
-	*values(start: any = this.lowest, end: any = this.highest, inclusive: boolean = true): IterableIterator<V> {
+	*values(start: any = this.lowest, end: any = this.highest, includeStart: boolean = true, includeEnd: boolean = true): IterableIterator<V> {
 		if (this._map.size === 0) return;
-		const iterator = this.keys(start, end, inclusive);
+		const iterator = this.keys(start, end, includeStart, includeEnd);
 		let next = iterator.next();
 		while (!next.done) {
 			const key = next.value;
-			const values = this._map.get(key);
+			const values = this._map.get(this._config.serialize(key));
 			for (const value of values!) {
 				yield value;
 			}
@@ -162,13 +188,13 @@ export class BTreeMap<V> {
 		}
 	}
 	
-	*entries(start: any = this.lowest, end: any = this.highest, inclusive: boolean = true): IterableIterator<[any, V]> {
+	*entries(start: any = this.lowest, end: any = this.highest, includeStart: boolean = true, includeEnd: boolean = true): IterableIterator<[any, V]> {
 		if (this._map.size === 0) return;
-		const iterator = this.keys(start, end, inclusive);
+		const iterator = this.keys(start, end, includeStart, includeEnd);
 		let next = iterator.next();
 		while (!next.done) {
 			const key = next.value;
-			const values = this._map.get(key);
+			const values = this._map.get(this._config.serialize(key));
 			for (const value of values!) {
 				yield [key, value];
 			}
@@ -178,9 +204,9 @@ export class BTreeMap<V> {
 	
 	// functional methods
 	
-	forEach(func: (value: V, key: any, map: BTreeMap<V>) => void, start: any = this.lowest, end: any = this.highest, inclusive: boolean = true): void {
+	forEach(func: (value: V, key: any, map: BTreeMap<V>) => void, start: any = this.lowest, end: any = this.highest, includeStart: boolean = true, includeEnd: boolean = true): void {
 		if (this._map.size === 0) return;
-		const iterator = this.entries(start, end, inclusive);
+		const iterator = this.entries(start, end, includeStart, includeEnd);
 		let next = iterator.next();
 		while (!next.done) {
 			const [key, value] = next.value;
@@ -190,11 +216,11 @@ export class BTreeMap<V> {
 	}
 	
 	toString(): string {
-		return this._root.toString(this._map, 0);
+		return this._root.toString((key: any) => this._map.get(this._config.serialize(key))!, 0);
 	}
 }
 
-class Node {
+class Node<V> {
 	config: TreeConfig;
 	min: number;
 	max: number;
@@ -261,11 +287,11 @@ class Node {
 		if (child.keys.length < child.min) this.consolidateChild(child, slot);
 	}
 	
-	findLeaf(key: any): Leaf {
+	findLeaf(key: any): Leaf<V> {
 		return this.children[slotOf(key, this.keys, this.config.compare)].findLeaf(key);
 	}
 	
-	split(): Node {
+	split(): Node<V> {
 		const newNode = new Node(this.config);
 		newNode.keys = this.keys.splice(this.min);
 		newNode.keys.shift();
@@ -273,36 +299,36 @@ class Node {
 		return newNode;
 	}
 	
-	shrink(): Node {
+	shrink(): Node<V> {
 		this.config.stats.nodes--;
 		return this.children[0];
 	}
 	
-	borrowLeft(source: Node): void {
+	borrowLeft(source: Node<V>): void {
 		this.keys.unshift(this.lowest);
 		source.keys.pop();
 		this.children.unshift(source.children.pop());
 	}
 	
-	borrowRight(source: Node): void {
+	borrowRight(source: Node<V>): void {
 		this.keys.push(source.lowest);
 		source.keys.shift();
 		this.children.push(source.children.shift());
 	}
 	
-	merge(source: Node): void {
+	merge(source: Node<V>): void {
 		this.keys.push(source.lowest, ...source.keys);
 		this.children.push(...source.children);
 		this.config.stats.nodes--;
 	}
 	
-	splitChild(child: Node | Leaf, slot: number): void {
+	splitChild(child: Node<V> | Leaf<V>, slot: number): void {
 		const newChild = child.split();
 		this.keys.splice(slot, 0, newChild.lowest);
 		this.children.splice(slot+1, 0, newChild);
 	}
 	
-	consolidateChild(child: Node | Leaf, slot: number): void {
+	consolidateChild(child: Node<V> | Leaf<V>, slot: number): void {
 		const keys = this.keys;
 		const children = this.children;
 		let sibling;
@@ -339,21 +365,21 @@ class Node {
 		}
 	}
 	
-	toString(map: Map<any, any>, level: number = 0): string {
-		let output = "|  ".repeat(level) + ((level === 0) ? "Root - " : "Node - ") + String(this.keys);
+	toString(resolve: (key: any) => V[], level: number = 0): string {
+		let output = "|  ".repeat(level) + ((level === 0) ? "Root - " : "Node - ") + "[" + this.keys.map((key) => this.config.serialize(key)).join(",") + "]";
 		for (let i = 0, length = this.children.length; i < length; i++) {
-			output += "\n" + this.children[i].toString(map, level+1)
+			output += "\n" + this.children[i].toString(resolve, level + 1)
 		}
 		return output;
 	}
 }
 
-class Leaf {
+class Leaf<V> {
 	config: TreeConfig;
 	min: number;
 	max: number;
 	keys: Array<any>;
-	next: Leaf | null;
+	next: Leaf<V> | null;
 	
 	constructor(config: TreeConfig) {
 		this.config = config;
@@ -387,11 +413,11 @@ class Leaf {
 		this.config.stats.keys--;
 	}
 	
-	findLeaf(): Leaf {
+	findLeaf(): Leaf<V> {
 		return this;
 	}
 	
-	split(): Leaf {
+	split(): Leaf<V> {
 		const newLeaf = new Leaf(this.config);
 		newLeaf.keys = this.keys.splice(this.min);	
 		newLeaf.next = this.next;
@@ -399,47 +425,67 @@ class Leaf {
 		return newLeaf;
 	}
 	
-	shrink(): Leaf {
+	shrink(): Leaf<V> {
 		this.config.stats.leaves--;
 		return new Leaf(this.config);
 	}
 	
-	borrowLeft(source: Leaf): void {
+	borrowLeft(source: Leaf<V>): void {
 		this.keys.unshift(source.keys.pop());
 	}
 	
-	borrowRight(source: Leaf): void {
+	borrowRight(source: Leaf<V>): void {
 		this.keys.push(source.keys.shift());
 	}
 	
-	merge(source: Leaf): void {
+	merge(source: Leaf<V>): void {
 		this.keys.push(...source.keys);
 		this.next = source.next;
 		this.config.stats.leaves--;
 	}
 	
-	toString(map: Map<any, any>, level: number = 0): string {
+	toString(resolve: (key: any) => V[], level: number = 0): string {
 		let output = "|  ".repeat(level) + "Leaf";
 		for (const key of this.keys) {
-			output += "\n" + "|  ".repeat(level+1) + String(key) + ": " + String(map.get(key));
+			output += "\n" + "|  ".repeat(level + 1) + this.config.serialize(key) + ": " + this.config.serialize(resolve(key));
 		}
-		if (this.next) output += " --> " + String(this.next.lowest);
+		if (this.next) output += " --> " + this.config.serialize(this.next.lowest);
 		return output;
 	}
 }
 
+// Note: This intentionally returns middle + 1 when elements are equal,
+// ensuring that the key is inserted into the keys array after the matching
+// key, which is necessary for maintaining the correct tree structure.
 function slotOf(element: any, array: Array<any>, compare: Function): number {
 	let bottom = 0, top = array.length, middle = top >>> 1;
 	while (bottom < top) {
 		const comparison = compare(element, array[middle]);
 		if (comparison === 0) {
-			return middle+1;
+			return middle + 1;
 		} else if (comparison < 0) {
 			top = middle;
 		} else {
-			bottom = middle+1;
+			bottom = middle + 1;
 		}
 		middle = bottom + ((top - bottom) >>> 1);
 	}
 	return middle;
+}
+
+function shallowEquals<V>(a: V, b: V): boolean {
+    if (a === b) return true;
+    if (Array.isArray(a) && Array.isArray(b)) {
+        if (a.length !== b.length) return false;
+        return a.every((value, index) => value === b[index]);
+    }
+    if (a !== null && b !== null && typeof a === "object" && typeof b === "object") {
+		const objectA = a as Record<string, any>;
+		const objectB = b as Record<string, any>;
+        const keysA = Object.keys(objectA);
+        const keysB = Object.keys(objectB);
+        if (keysA.length !== keysB.length) return false;
+        return keysA.every((key) => objectA[key] === objectB[key]);
+    }
+    return false;
 }
