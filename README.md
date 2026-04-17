@@ -15,8 +15,6 @@ There is one important way in which a `BTreeMap` differs from a `Map`. The desig
 
 By default, a `BTreeMap` is configured for unique keys.
 
-`BTreeMap` enforces a single key type per instance, inferred from the first call to `set()`. Attempting to insert a key of a different type will throw a `TypeError`.
-
 ## Examples
 
 ### Unique keys
@@ -46,31 +44,36 @@ btm.get(1); // returns ["two"]
 btm.delete(1); // deletes key 1 and all its values
 ```
 
-### Key type enforcement
-
-```js
-const btm = new BTreeMap();
-btm.set(1, "one"); // key type inferred as "number"
-btm.set("2", "two"); // throws TypeError: BTreeMap key type mismatch: expected number, got string
-```
 
 ### Non-primitive keys
 
-When using object or array keys, provide a custom `serialize` function so that key equality is based on value rather than reference. The default serializer uses `JSON.stringify` and handles `BigInt` values automatically.
+When using object, array, or null keys, provide custom `compareKeys` and `serializeKey` functions so that key ordering and identity are based on value rather than reference. For `deleteValue`, provide a custom `matchValue` function so that value matching is based on value rather than reference.
+
+- `compareKeys` — controls ordering in the tree
+- `serializeKey` — controls key identity in the internal Map (defaults to `JSON.stringify` with built-in `BigInt` support)
+- `matchValue` (passed to `deleteValue`) — controls value matching during deletion (defaults to `===`)
 
 ```js
 const btm = new BTreeMap({
-	unique: false,
-	serialize: (a) => JSON.stringify([...a].sort()),
-	compare: (a, b) => {
-		const sa = JSON.stringify([...a].sort());
-		const sb = JSON.stringify([...b].sort());
-		return sa < sb ? -1 : sa > sb ? 1 : 0;
-	}
+  compareKeys: (a, b) => {
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      if (a[i] === null && b[i] === null) continue;
+      if (a[i] === null) return -1;
+      if (b[i] === null) return 1;
+      if (a[i] < b[i]) return -1;
+      if (a[i] > b[i]) return 1;
+    }
+    return 0;
+  },
+  serializeKey: (a) => JSON.stringify(a),
 });
+
 btm.set([1, 2], "first");
-btm.set([2, 1], "another first"); // treated as the same key as [1, 2]
-btm.get([1, 2]); // returns ["first", "another first"]
+btm.set([1, 3], "second");
+btm.set([null, 1], "third"); // null sorts before other values
+
+const matchValue = (a, b) => a === b;
+btm.deleteValue([1, 2], "first", matchValue);
 ```
 
 ### BigInt keys
@@ -153,10 +156,6 @@ Returns the order of the `BTreeMap` object's B+ Tree.
 
 Returns `true` if the `BTreeMap` is configured for unique keys; `false` otherwise.
 
-### BTreeMap.keyType
-
-Returns the type of keys in the `BTreeMap` as a string (e.g. `"number"`, `"string"`, `"object"`), as inferred from the first call to `set()`. Returns `undefined` if no keys have been inserted yet.
-
 ### BTreeMap.size
 
 Returns the number of unique keys in the `BTreeMap`. When configured for non-unique keys, the number of values may be greater than the size.
@@ -196,8 +195,6 @@ The key to test for presence in the `BTreeMap` object.
 ### BTreeMap.set()
 
 Adds a value for the specified key. If configured for unique keys and the key already exists, overwrites the existing value. If configured for non-unique keys, appends the value to the key's array of associated values. The key's values array preserves insertion order and allows duplicates.
-
-Infers the key type from the first call. Throws a `TypeError` if a subsequent call uses a key of a different type.
 
 #### Syntax
 
