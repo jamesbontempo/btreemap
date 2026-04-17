@@ -110,10 +110,10 @@ Option|Type|Description|Default
 ------|----|-----------|-------
 `unique`|boolean|Whether keys are unique|`true`
 `order`|number|The order of the B+ Tree (minimum 3)|`3`
-`serialize`|function|The function used to serialize keys for equality checks|See below
-`compare`|function|The function used to compare keys for ordering|See below
+`serializeKey`|function|The function used to serialize keys for equality checks|See below
+`compareKeys`|function|The function used to compare keys for ordering|See below
 
-The default serializer converts keys to strings using `JSON.stringify`, with built-in support for `BigInt` values. For non-primitive keys (objects, arrays) where equality should be based on value rather than reference, supply a custom serializer. Note that the serializer is used only for key equality checks — ordering is controlled separately by `compare`.
+The default serializer converts keys to strings using `JSON.stringify`, with built-in support for `BigInt` values. For non-primitive keys (objects, arrays, null) where equality should be based on value rather than reference, supply a custom serializer. Note that the serializer is used only for key equality checks — ordering is controlled separately by `compareKeys`.
 
 The default comparator compares keys using the `<` and `>` operators, which works correctly for keys of a consistent primitive type (numbers, strings, etc.). For custom ordering, supply your own comparator. It must take two values as input and return a negative number if the first should be sorted before the second, a positive number if the second should be sorted before the first, or zero if they are equal. When using non-primitive keys, take care not to mutate keys inside the comparator — operate on copies instead.
 
@@ -124,13 +124,13 @@ The default comparator compares keys using the `<` and `>` operators, which work
 const btm = new BTreeMap({
 	unique: false,
 	order: 5,
-	compare: (a, b) => (a < b) ? -1 : ((a > b) ? 1 : 0)
+	compareKeys: (a, b) => (a < b) ? -1 : ((a > b) ? 1 : 0)
 });
 
 // Array keys with custom serializer and comparator
 const btm2 = new BTreeMap({
-	serialize: (a) => JSON.stringify([...a].sort()),
-	compare: (a, b) => {
+	serializeKey: (a) => JSON.stringify([...a].sort()),
+	compareKeys: (a, b) => {
 		const sa = JSON.stringify([...a].sort());
 		const sb = JSON.stringify([...b].sort());
 		return sa < sb ? -1 : sa > sb ? 1 : 0;
@@ -264,11 +264,11 @@ The key to remove from the `BTreeMap` object.
 
 Removes a single value from the array of values associated with the specified key. If removing the value causes the array to become empty, the key itself is also removed.
 
-By default, values are compared using shallow equality: primitives use strict equality (`===`), arrays are compared element-by-element, and plain objects are compared property-by-property (one level deep). A custom `equals` function can be provided for other equality semantics.
+By default, values are compared using strict equality (`===`). A custom `matchValue` function can be provided for other equality semantics.
 
 #### Syntax
 
-	deleteValue(key, value[, equals])
+	deleteValue(key, value[, matchValue])
 
 #### Parameters
 
@@ -280,9 +280,9 @@ The key whose associated value should be removed.
 
 The specific value to remove from the key's array of associated values.
 
-`equals`
+`matchValue`
 
-An optional function `(a, b) => boolean` used to determine value equality. Defaults to a shallow equality check.
+An optional function `(a, b) => boolean` used to determine value equality. Defaults to a strict equality check.
 
 #### Return value
 
@@ -298,16 +298,10 @@ btm.deleteValue(1, "one"); // returns true; key 1 still exists with ["uno"]
 btm.deleteValue(1, "uno"); // returns true; key 1 is also removed
 btm.deleteValue(1, "one"); // returns false; key 1 no longer exists
 
-// Custom equals function
+// Custom matchValue function
 btm.set(1, "Hello");
 btm.set(1, "World");
 btm.deleteValue(1, "hello", (a, b) => a.toLowerCase() === b.toLowerCase()); // removes "Hello"
-
-// Array values (shallow equality by default)
-const btm2 = new BTreeMap({ unique: false });
-btm2.set(1, [1, 2]);
-btm2.set(1, [3, 4]);
-btm2.deleteValue(1, [1, 2]); // returns true; shallow equality matches [1, 2]
 ```
 
 ### BTreeMap.clear()
