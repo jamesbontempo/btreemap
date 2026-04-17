@@ -1,11 +1,24 @@
 type Serializer = (a: any) => string;
+
+const defaultSerializer: Serializer = (a: any) =>
+	JSON.stringify(a, ((key, value) => 
+		typeof value === "bigint" ? value.toString() : value
+	)
+);
+
 type Comparator = (a: any, b: any) => number;
+
+const defaultComparator: Comparator = (a: any, b: any): number => a < b ? -1 : a > b ? 1 : 0
 
 export type BTreeMapOptions = {
 	unique?: boolean;
 	order?: number;
+	/** @deprecated Use serializeKey instead */
 	serialize?: Serializer;
+	/** @deprecated Use compareKeys instead */
 	compare?: Comparator;
+	serializeKey?: Serializer;
+	compareKeys?: Comparator;
 }
 
 type TreeConfig = {
@@ -20,17 +33,12 @@ export class BTreeMap<V> {
 	private readonly _unique: boolean;
 	private readonly _map: Map<any, V[]>;
 	private _root: Node<V> | Leaf<V>;
-	private _keyType: string | undefined;
 	
 	constructor(options: BTreeMapOptions = {}) {
 		this._config = {
 			order: Math.max(options.order ?? 3, 3),
-			serialize: options.serialize ?? ((a: any) =>
-				JSON.stringify(a, ((key, value) => 
-					typeof value === "bigint" ? value.toString() : value
-				))
-			),
-			compare: options.compare ?? ((a: any, b: any): number => a < b ? -1 : a > b ? 1 : 0),
+			serialize: options.serializeKey ?? options.serialize ?? defaultSerializer,
+			compare: options.compareKeys ?? options.compare ?? defaultComparator,
 			stats: { depth: 0, nodes: 0, leaves: 0, keys: 0, values: 0 }
 		}
 		this._unique = options.unique ?? true;
@@ -55,10 +63,6 @@ export class BTreeMap<V> {
 	get unique(): boolean {
 		return this._unique;
 	}
-
-	get keyType(): string | undefined {
-		return this._keyType;
-	}
 	
 	get size(): number {
 		return this._map.size;
@@ -79,12 +83,6 @@ export class BTreeMap<V> {
 	}
 	
 	set(key: any, value: V): BTreeMap<V> {
-		const keyType = typeof key;
-		if (!this._keyType) {
-			this._keyType = keyType;
-		} else if (keyType !== this._keyType) {
-			throw new TypeError(`Key type mismatch: expected ${this._keyType}, got ${keyType}`);
-		}
 		const values = this._map.get(this._config.serialize(key));
 		if (values !== undefined) {
 			if (this._unique) {
@@ -125,12 +123,12 @@ export class BTreeMap<V> {
 		}
 	}
 
-	deleteValue(key: any, value: V, equals: (a: V, b: V) => boolean = shallowEquals): boolean {
+	deleteValue(key: any, value: V, matchValue: (a: V, b: V) => boolean = (a: V, b: V) => a === b): boolean {
 		const values = this._map.get(this._config.serialize(key));
 		if (values === undefined) return false;
 		let index = -1;
 		for (let i = 0; i < values.length; i++) {
-			if (equals(values[i], value)) {
+			if (matchValue(values[i], value)) {
 				index = i;
 				break;
 			}
@@ -471,21 +469,4 @@ function slotOf(element: any, array: Array<any>, compare: Function): number {
 		middle = bottom + ((top - bottom) >>> 1);
 	}
 	return middle;
-}
-
-function shallowEquals<V>(a: V, b: V): boolean {
-    if (a === b) return true;
-    if (Array.isArray(a) && Array.isArray(b)) {
-        if (a.length !== b.length) return false;
-        return a.every((value, index) => value === b[index]);
-    }
-    if (a !== null && b !== null && typeof a === "object" && typeof b === "object") {
-		const objectA = a as Record<string, any>;
-		const objectB = b as Record<string, any>;
-        const keysA = Object.keys(objectA);
-        const keysB = Object.keys(objectB);
-        if (keysA.length !== keysB.length) return false;
-        return keysA.every((key) => objectA[key] === objectB[key]);
-    }
-    return false;
 }
