@@ -11,7 +11,7 @@
     "coverage": "tsc && node --test --experimental-test-coverage --test-reporter=lcov ./test/test.js > coverage.lcov",
     "report-coverage": "codecov",
     "ci": "npm run coverage && npm run report-coverage",
-    "release": "tsc && npm publish"
+    "release": "tsc && npm login && npm publish"
   },
   "keywords": [
     "btree",
