@@ -65,7 +65,6 @@ describe("BTreeMap", () => {
     it("sets a single key/value pair", () => {
         const btree = new BTreeMap();
         btree.set(1, 1);
-        assert.equal(btree.keyType, "number");
         assert.deepStrictEqual(btree.get(1), [1]);
         assert.equal(btree.lowest, 1);
         assert.equal(btree.highest, 1);
@@ -210,10 +209,10 @@ describe("BTreeMap", () => {
         assert.equal(test.tree.deleteValue(5, "cinco"), false);
     });
 
-    it("tries to add different key type", () => {
+    it("adds a different key type", () => {
         const tree = new BTreeMap();
         tree.set(1, "1");
-        assert.throws(() => tree.set("2", "two"));
+        assert.doesNotThrow(() => tree.set("2", "two"));
     });
 
 	it("borrows from the left end of a key array", () => {
@@ -349,20 +348,30 @@ describe("BTreeMap", () => {
 
     it("sets array values and deletes one", () => {
         const btree = new BTreeMap({ unique: false });
+        const equal = (a, b) => {
+            if (a.length !== b.length) return false;
+            return a.every((value, index) => value === b[index]);
+        };
         btree.set(1, [1, 2]);
         btree.set(1, [2, 3]);
         btree.set(1, [3, 4]);
-        btree.deleteValue(1, [2, 3]);
+        btree.deleteValue(1, [2, 3], equal);
         assertStats(btree, { keys: 1, values: 2 });
     });
 
     it("sets object values and deletes one", () => {
         const btree = new BTreeMap({ unique: false });
+        const equal = (a, b) => {
+            const keysA = Object.keys(a);
+            const keysB = Object.keys(b);
+            if (keysA.length !== keysB.length) return false;
+            return keysA.every((key) => a[key] === b[key]);
+        };
         btree.set(1, { id: 1, letter: "a" });
         btree.set(1, { id: 2, letter: "b" });
         btree.set(1, { id: 1, letter: "c" });
         btree.set(1, { id: 3 });
-        btree.deleteValue(1, { id: 1, letter: "a" });
+        btree.deleteValue(1, { id: 1, letter: "a" }, equal);
         assertStats(btree, { keys: 1, values: 3 });
     });
 
